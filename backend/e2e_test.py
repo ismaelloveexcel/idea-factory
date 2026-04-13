@@ -305,6 +305,60 @@ async def run_all():
         r = await c.post("/api/referral/apply", json={"code": "TEST"})
         t("Referral endpoint removed (personal tool) → 404", r.status_code == 404)
 
+    # ══════════════════════════════════════════
+    section("13. NEW DEEP-DIVE ENDPOINTS")
+    # ══════════════════════════════════════════
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        # These endpoints require a valid idea_id — test 404 with fake ID
+        r = await c.get("/api/idea/fake-id/pivot-suggestions")
+        t("Pivot suggestions — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/interview-script")
+        t("Interview script — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/gtm-playbook")
+        t("GTM playbook — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/swot")
+        t("SWOT analysis — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/unit-economics")
+        t("Unit economics — fake id → 404 or 503", r.status_code in [404, 503])
+
+    # ══════════════════════════════════════════
+    section("14. COMPARE & BATCH ENDPOINTS")
+    # ══════════════════════════════════════════
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        # Compare needs 2-5 IDs
+        r = await c.post("/api/compare", json={"idea_ids": ["one"]})
+        t("Compare — too few → 400", r.status_code == 400)
+
+        r = await c.post("/api/compare", json={"idea_ids": ["a","b","c","d","e","f"]})
+        t("Compare — too many → 400", r.status_code == 400)
+
+        r = await c.post("/api/compare", json={"idea_ids": ["fake1", "fake2"]})
+        t("Compare — fake IDs → 404 or 503", r.status_code in [404, 503])
+
+        # Batch needs 2-10 ideas
+        r = await c.post("/api/batch-validate", json={"ideas": ["one"]})
+        t("Batch — too few → 400", r.status_code == 400)
+
+        r = await c.post("/api/batch-validate", json={"ideas": ["a"]*11})
+        t("Batch — too many → 400", r.status_code == 400)
+
+        r = await c.post("/api/batch-validate", json={"ideas": ["Test idea 1", "Test idea 2"]})
+        t("Batch — valid input → 200 or 503 (no key)", r.status_code in [200, 503])
+
+    # ══════════════════════════════════════════
+    section("15. HEALTH WITH FALLBACK INFO")
+    # ══════════════════════════════════════════
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/api/health")
+        d = r.json()
+        t("Health has mode field", "mode" in d)
+        t("Health engines present", "engines" in d)
+        t("Health has claude engine", "claude" in d.get("engines", {}))
+
 
 asyncio.run(run_all())
 
