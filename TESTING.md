@@ -1,163 +1,99 @@
-# Testing Guide — Idea Factory
+# Testing Guide — Idea Factory v4.0
 
-## 🧪 Quick Test Flow
+## Quick Checks
 
-### 1. Backend Health Check
+### 1. Health Check
 
 ```bash
-curl http://localhost:8000/
+curl http://localhost:8000/api/health
 ```
 
 **Expected:**
 ```json
-{"status":"Idea Factory API running","version":"1.0.0"}
+{"status": "ok", "version": "4.0.0", "engines": {"claude": true, "perplexity": false, "gpt4o": true, "grok": true}}
 ```
 
 ---
 
-### 2. Test Idea Analysis
+### 2. Analyze an Idea (SSE Stream)
 
-**Request:**
 ```bash
-curl -X POST http://localhost:8000/api/analyze \
+curl -N -X POST http://localhost:8000/api/analyze \
   -H "Content-Type: application/json" \
-  -d '{
-    "raw_idea": "A Chrome extension that blocks LinkedIn cold outreach DMs",
-    "pain": {
-      "pain_who": "Startup founders and VCs",
-      "pain_quotes": "I get 50+ spam DMs per day\nLinkedIn is unusable because of cold outreach\nI spend 20min daily deleting spam messages",
-      "pain_freq": "Every single day, multiple times",
-      "pain_buyers": "@paulg, @naval, @dhh"
-    }
-  }'
+  -d '{"idea": "An app that helps freelancers track unpaid invoices", "mode": "validate"}'
 ```
 
-**Expected Response Structure:**
-```json
-{
-  "id": "a4f3e1b2",
-  "concept": "LinkedIn spam blocker Chrome extension",
-  "target_user": "Startup founders drowning in cold DMs",
-  "core_pain": "50+ spam DMs daily waste 20min",
-  "value_promise": "Clean LinkedIn inbox in one click",
-  "g1": "Can you build v1 in <7 days?",
-  "g1r": "YES — Chrome extension API = 2 days",
-  "g2": "Can you charge >$10 on day 1?",
-  "g2r": "YES — Founders pay $29/mo for productivity tools",
-  "g3": "Is pain severe enough they'll switch NOW?",
-  "g3r": "YES — 20min daily = 121hr/year wasted",
-  "final_decision": "BUILD"
-}
-```
+**Expected:** Server-Sent Events stream with:
+- `step` events (ai: perplexity/grok/claude/gpt, status: start/done/skipped)
+- `result` event with score, verdict, concept, gates, etc.
 
 ---
 
-### 3. Test Signal Logging
+### 3. Test Modes
 
+**Validate** (default — analyzes as-is):
 ```bash
-curl -X POST http://localhost:8000/api/signal \
+curl -N -X POST http://localhost:8000/api/analyze \
   -H "Content-Type: application/json" \
-  -d '{
-    "idea_id": "a4f3e1b2",
-    "signal_type": "pay"
-  }'
+  -d '{"idea": "A tool for tracking gym progress", "mode": "validate"}'
 ```
 
-**Expected:**
-```json
-{
-  "status": "success",
-  "pay": 1,
-  "rep": 0,
-  "clk": 0
-}
-```
-
----
-
-### 4. Get All Ideas
-
+**Trendy** (remixes with trending markets first):
 ```bash
-curl http://localhost:8000/api/ideas
+curl -N -X POST http://localhost:8000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"idea": "A tool for tracking gym progress", "mode": "trendy"}'
 ```
 
-**Expected:** Array of all validated ideas
+**Wild** (generates creative twist first):
+```bash
+curl -N -X POST http://localhost:8000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"idea": "A tool for tracking gym progress", "mode": "wild"}'
+```
+
+For trendy/wild modes, expect an extra `step` event with `"ai": "mode"` showing the remixed idea.
 
 ---
 
-### 5. Get Stats
+### 4. Stats
 
 ```bash
 curl http://localhost:8000/api/stats
 ```
 
-**Expected:**
-```json
-{
-  "validated": 5,
-  "built": 2,
-  "killed": 3,
-  "week": 5
-}
+---
+
+### 5. PDF Report
+
+```bash
+# Use an idea ID from a previous analysis
+curl http://localhost:8000/api/idea/{id}/pdf -o report.pdf
 ```
 
 ---
 
-## 🎯 Test Scenarios
+## Automated E2E Suite
 
-### Scenario A: Strong Idea (Should PASS all gates)
+Run all 178 tests:
 
-**Input:**
-- **Pain Who:** Solo developers launching SaaS
-- **Pain Quotes:** 
-  - "Spent 3 months building, got 0 customers"
-  - "How do I validate before coding?"
-  - "Lost $5k on unwanted features"
-- **Pain Freq:** Every solo founder experiences this
-- **Pain Buyers:** @levelsio, @dannypostmaa, @marc_louvion
-- **Idea:** Tool that validates SaaS ideas in 48h using AI + pre-sell posts
+```bash
+cd backend
+pip install requests
+python e2e_test_v4.py
+```
 
-**Expected Decision:** `BUILD`
+Covers: health, frontend, stats, SSE streaming, result structure (42+ fields), DB persistence, signals, decisions, PDF, premium report, landing page, twitter thread, public pages, email capture, admin, cron, trends.
 
 ---
 
-### Scenario B: Weak Idea (Should FAIL gates)
+## Scoring Reference
 
-**Input:**
-- **Pain Who:** People who like cats
-- **Pain Quotes:**
-  - "Cats are cute"
-  - "I wish I had more cat pictures"
-- **Pain Freq:** Sometimes
-- **Pain Buyers:** My friends
-- **Idea:** Social network for cat lovers
-
-**Expected Decision:** `KILL`
-
-**Reasons:**
-- Gate 1: FAIL — "My friends" is not specific enough
-- Gate 2: FAIL — No monetization urgency
-- Gate 3: FAIL — Not a severe pain
-
----
-
-### Scenario C: Test-First Idea (Mixed gates)
-
-**Input:**
-- **Pain Who:** Freelance designers
-- **Pain Quotes:**
-  - "Invoice clients manually takes 2 hours/week"
-  - "Hate chasing late payments"
-- **Pain Freq:** Weekly
-- **Pain Buyers:** @femkesvs, @shl, @traf
-- **Idea:** Invoice automation tool for designers
-
-**Expected Decision:** `TEST FIRST`
-
-**Reasons:**
-- Gate 1: PASS — Real named buyers
-- Gate 2: MAYBE — Revenue possible but competitive space
-- Gate 3: PASS — Weekly pain is actionable
+| Score | Verdict |
+|-------|---------|
+| 70-100 | **GO** — Strong idea, build it |
+| 40-69 | **MAYBE** — Needs work, test first |
+| 0-39 | **SKIP** — Weak, move on |
 
 ---
 
