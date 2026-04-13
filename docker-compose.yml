@@ -7,7 +7,10 @@ services:
       - "8000:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - BASE_URL=http://localhost:8000
+      - BASE_URL=${BASE_URL:-http://localhost:8000}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - ADMIN_SECRET=${ADMIN_SECRET:-change-me-in-production}
     volumes:
       - ./backend:/app
       - ./data:/app/data
