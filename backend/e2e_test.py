@@ -1,7 +1,7 @@
 """
-Comprehensive E2E Test Suite for Idea Factory v4.0 — Personal Tool
-Tests every endpoint relevant to the personal idea-validation tool.
-No paywalls, no Stripe, no referral system — just powerful idea analysis.
+Comprehensive E2E Test Suite for Idea Factory v5.0 — Personal Tool
+Tests every endpoint: idea validation, deep-dives, app builder tools,
+and all supporting features. No paywalls — this tool helps BUILD sellable apps.
 """
 import asyncio
 import json
@@ -358,6 +358,41 @@ async def run_all():
         t("Health has mode field", "mode" in d)
         t("Health engines present", "engines" in d)
         t("Health has claude engine", "claude" in d.get("engines", {}))
+        t("Health version is 5.0.0", d.get("version") == "5.0.0")
+
+    # ══════════════════════════════════════════
+    section("16. APP BUILDER ENDPOINTS")
+    # ══════════════════════════════════════════
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        # All app-builder endpoints require a valid idea_id — test 404 with fake ID
+        r = await c.get("/api/idea/fake-id/generate-app")
+        t("Generate app — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/monetization-plan")
+        t("Monetization plan — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/pricing-intel")
+        t("Pricing intel — fake id → 404 or 503", r.status_code in [404, 503])
+
+        r = await c.get("/api/idea/fake-id/product-kit")
+        t("Product kit — fake id → 404 or 503", r.status_code in [404, 503])
+
+    # ══════════════════════════════════════════
+    section("17. FRONTEND APP BUILDER UI")
+    # ══════════════════════════════════════════
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/")
+        html = r.text
+        t("Has Build & Sell section", "Build &amp; Sell This App" in html or "Build & Sell" in html)
+        t("Has Generate App button", "Generate App" in html)
+        t("Has Monetization button", "Monetization" in html)
+        t("Has Pricing Intel button", "Pricing Intel" in html)
+        t("Has Product Kit button", "Product Kit" in html)
+        t("Has renderAppScaffold function", "renderAppScaffold" in html)
+        t("Has renderMonetization function", "renderMonetization" in html)
+        t("Has renderPricingIntel function", "renderPricingIntel" in html)
+        t("Has renderProductKit function", "renderProductKit" in html)
+        t("Version updated to v5", "/ v5" in html)
 
 
 asyncio.run(run_all())
