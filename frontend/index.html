@@ -3,1746 +3,944 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Idea Factory — Kill or Build</title>
+<title>Idea Factory — Multi-AI Idea Validator</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   --bg: #080808;
-  --surface: #0f0f0f;
-  --surface2: #161616;
-  --surface3: #1e1e1e;
-  --border: #1f1f1f;
-  --border2: #2a2a2a;
-  --text: #efefef;
-  --text-muted: #4a4a4a;
-  --text-dim: #777;
-  --accent: #c8ff00;
-  --accent-dim: rgba(200,255,0,0.08);
-  --accent-border: rgba(200,255,0,0.25);
-  --red: #ff3b3b;
-  --red-dim: rgba(255,59,59,0.08);
-  --red-border: rgba(255,59,59,0.3);
-  --orange: #ff8c00;
-  --orange-dim: rgba(255,140,0,0.08);
-  --orange-border: rgba(255,140,0,0.3);
-  --green: #00e87a;
-  --green-dim: rgba(0,232,122,0.08);
-  --green-border: rgba(0,232,122,0.3);
-  --blue: #4d9fff;
-  --blue-dim: rgba(77,159,255,0.08);
-  --font: 'Syne', sans-serif;
-  --mono: 'JetBrains Mono', monospace;
+  --sf: #0f0f0f;
+  --sf2: #161616;
+  --sf3: #1e1e1e;
+  --bd: #1f1f1f;
+  --bd2: #2a2a2a;
+  --tx: #efefef;
+  --mt: #555;
+  --dm: #777;
+  --ac: #c8ff00;
+  --ac-dim: rgba(200,255,0,0.08);
+  --ac-bd: rgba(200,255,0,0.25);
+  --rd: #ff3b3b;
+  --rd-dim: rgba(255,59,59,0.08);
+  --rd-bd: rgba(255,59,59,0.3);
+  --or: #ff8c00;
+  --or-dim: rgba(255,140,0,0.08);
+  --or-bd: rgba(255,140,0,0.3);
+  --gn: #00e87a;
+  --gn-dim: rgba(0,232,122,0.08);
+  --gn-bd: rgba(0,232,122,0.3);
+  --bl: #4d9fff;
+  --fn: 'Inter', system-ui, sans-serif;
+  --mn: 'JetBrains Mono', monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html { scroll-behavior: smooth; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
+  background: var(--bg); color: var(--tx); font-family: var(--fn);
   min-height: 100vh;
-  padding-bottom: 72px;
-  background-image: radial-gradient(ellipse at 20% 0%, rgba(200,255,0,0.03) 0%, transparent 60%),
-                    radial-gradient(ellipse at 80% 100%, rgba(77,159,255,0.02) 0%, transparent 60%);
+  background-image: radial-gradient(ellipse at 20% 0%, rgba(200,255,0,0.03) 0%, transparent 60%);
 }
 
-/* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 2px; }
 
 /* ── HEADER ── */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 28px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(8,8,8,0.95);
-  backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 28px; border-bottom: 1px solid var(--bd);
+  background: rgba(8,8,8,0.95); backdrop-filter: blur(12px);
   position: sticky; top: 0; z-index: 200;
 }
-
 .logo {
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  font-family: var(--mn); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ac);
+  display: flex; align-items: center; gap: 10px;
 }
 .logo-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-  animation: pulse-dot 2s ease-in-out infinite;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ac); box-shadow: 0 0 8px var(--ac);
+  animation: pulse 2s ease-in-out infinite;
 }
-@keyframes pulse-dot {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+.logo span { color: var(--mt); }
+.nav-links { display: flex; gap: 16px; }
+.nav-links a {
+  font-family: var(--mn); font-size: 10px; color: var(--mt);
+  text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em;
 }
-.logo span { color: var(--text-muted); }
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.new-idea-btn {
-  background: none;
-  border: 1px solid var(--border2);
-  color: var(--text-dim);
-  padding: 7px 14px;
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.new-idea-btn:hover { border-color: var(--accent-border); color: var(--accent); }
-
-/* ── KEYS PANEL ── */
-.keys-panel {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 28px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.key-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 200px;
-}
-.key-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-}
-.key-input {
-  flex: 1;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 7px 12px;
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.2s;
-  min-width: 0;
-}
-.key-input:focus { border-color: var(--accent-border); }
-.key-input::placeholder { color: var(--text-muted); }
-.key-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.status-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: all 0.3s;
-}
-.status-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.nav-links a:hover { color: var(--ac); }
 
 /* ── MAIN ── */
-.main { max-width: 920px; margin: 0 auto; padding: 28px 20px; }
+.main { max-width: 860px; margin: 0 auto; padding: 40px 20px 60px; }
 
-/* ── STATS BAR ── */
-.stats-bar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 28px;
+/* ── AI ENGINES ── */
+.engines { display: flex; gap: 8px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+.engine {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 8px;
+  padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+  font-family: var(--mn); font-size: 10px; color: var(--mt);
+  text-transform: uppercase; letter-spacing: 0.08em;
 }
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  text-align: center;
-  transition: border-color 0.2s;
+.engine-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mt); transition: all 0.3s;
 }
-.stat-card:hover { border-color: var(--border2); }
-.stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
-.stat-num.green { color: var(--green); }
-.stat-num.red { color: var(--red); }
-.stat-num.blue { color: var(--blue); }
-.stat-lbl { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px; }
+.engine-dot.on { background: var(--gn); box-shadow: 0 0 6px var(--gn); }
+.engine-dot.off { background: var(--rd); }
 
-/* ── SECTION ── */
-.section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  margin-bottom: 16px;
-  overflow: hidden;
-  transition: opacity 0.3s, filter 0.3s;
+/* ── INPUT ── */
+.input-section {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 16px;
+  padding: 28px; margin-bottom: 24px; transition: border-color 0.3s;
 }
-.section.locked { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
-.section.killed-lock {
-  opacity: 1;
-  pointer-events: none;
-  border-color: var(--red-border);
+.input-section:focus-within { border-color: var(--ac-bd); }
+.input-label {
+  font-size: 22px; font-weight: 800; margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--tx), var(--ac));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
+.input-hint { font-family: var(--mn); font-size: 11px; color: var(--mt); margin-bottom: 18px; }
 
-.sec-head {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+#ideaInput {
+  width: 100%; background: var(--sf2); border: 1px solid var(--bd);
+  border-radius: 10px; color: var(--tx); font-family: var(--fn);
+  font-size: 15px; padding: 16px 18px; outline: none;
+  resize: vertical; min-height: 80px; line-height: 1.6; transition: border-color 0.2s;
 }
-.sec-title {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.sec-num {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px;
-  color: var(--text-muted);
-}
-.sec-body { padding: 20px; }
+#ideaInput:focus { border-color: var(--ac-bd); }
+#ideaInput::placeholder { color: var(--mt); }
 
-/* ── INPUTS ── */
-.field-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.field-hint { color: var(--text-muted); font-style: italic; }
-
-textarea, input[type=text], input[type=url] {
-  width: 100%;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 14px;
-  padding: 12px 14px;
-  outline: none;
-  resize: vertical;
-  transition: border-color 0.2s;
-  line-height: 1.55;
-}
-textarea:focus, input:focus { border-color: var(--accent-border); }
-textarea::placeholder, input::placeholder { color: var(--text-muted); }
-.field { margin-bottom: 14px; }
-.field:last-child { margin-bottom: 0; }
-
-/* URL SCRAPER */
-.scraper-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.scraper-row input { flex: 1; }
-.scrape-btn {
-  background: var(--surface3);
-  border: 1px solid var(--border2);
-  color: var(--text-dim);
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-family: var(--mono);
-  font-size: 10px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.scrape-btn:hover { border-color: var(--blue); color: var(--blue); }
-.scrape-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.word-warn {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--orange);
-  margin-top: 5px;
-  display: none;
-}
-.word-warn.show { display: block; }
-
-/* ── ANALYZE BTN ── */
-.analyze-wrap { margin-top: 6px; }
+.submit-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
 .analyze-btn {
-  width: 100%;
-  background: var(--accent);
-  color: #000;
-  border: none;
-  border-radius: 10px;
-  padding: 15px;
-  font-family: var(--font);
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  letter-spacing: 0.03em;
+  flex: 1; background: var(--ac); color: #000; border: none;
+  border-radius: 10px; padding: 14px; font-family: var(--fn);
+  font-size: 15px; font-weight: 800; cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .analyze-btn:hover { opacity: 0.88; }
 .analyze-btn:active { transform: scale(0.99); }
 .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.analyze-hint {
-  text-align: center;
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: 8px;
-  letter-spacing: 0.08em;
-}
 
-/* ── PROGRESS ── */
-.progress-wrap { margin: 14px 0; display: none; }
-.progress-wrap.show { display: block; }
-.progress-steps {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
+.examples-row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.example-chip {
+  background: var(--sf2); border: 1px solid var(--bd); border-radius: 20px;
+  padding: 5px 12px; font-size: 11px; color: var(--dm); cursor: pointer; transition: all 0.2s;
 }
-.prog-step {
-  flex: 1;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  transition: background 0.4s;
-}
-.prog-step.active { background: var(--accent); }
-.prog-step.done { background: var(--green); }
-.prog-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  text-align: center;
-  animation: blink 1.5s ease-in-out infinite;
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.example-chip:hover { border-color: var(--ac-bd); color: var(--ac); }
 
-/* ── OUTPUT CHIPS ── */
-.chips-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+/* ── MODE SELECTOR ── */
+.mode-selector { display: flex; gap: 6px; margin-bottom: 16px; }
+.mode-btn {
+  flex: 1; padding: 10px 8px; border: 1px solid var(--bd); border-radius: 10px;
+  background: var(--sf); color: var(--dm); cursor: pointer;
+  font-family: var(--fn); font-size: 12px; font-weight: 600;
+  transition: all 0.2s; text-align: center; line-height: 1.3;
 }
-.chip {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  display: none;
-}
-.chip.show { display: block; }
-.chip-lbl {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 7px;
-}
-.chip-val { font-size: 13px; line-height: 1.55; color: var(--text); }
+.mode-btn .mode-emoji { font-size: 18px; display: block; margin-bottom: 4px; }
+.mode-btn .mode-name { display: block; font-weight: 700; color: var(--tx); font-size: 13px; }
+.mode-btn .mode-desc { display: block; font-size: 10px; color: var(--mt); margin-top: 2px; }
+.mode-btn:hover { border-color: var(--bd2); background: var(--sf2); }
+.mode-btn.active { border-color: var(--ac-bd); background: var(--ac-dim); }
+.mode-btn.active .mode-name { color: var(--ac); }
+.mode-btn[data-mode="trendy"].active { border-color: var(--or-bd); background: var(--or-dim); }
+.mode-btn[data-mode="trendy"].active .mode-name { color: var(--or); }
+.mode-btn[data-mode="wild"].active { border-color: #c084fc; background: rgba(192,132,252,0.08); }
+.mode-btn[data-mode="wild"].active .mode-name { color: #c084fc; }
 
-/* ── GATES ── */
-.gates-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.gate {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 14px;
-  text-align: center;
-  display: none;
-  transition: border-color 0.3s, background 0.3s;
-}
-.gate.show { display: block; }
-.gate.pass { border-color: var(--green-border); background: var(--green-dim); }
-.gate.fail { border-color: var(--red-border); background: var(--red-dim); }
-.gate.warn { border-color: var(--orange-border); background: var(--orange-dim); }
-.gate-lbl { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
-.gate-v { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
-.gate.pass .gate-v { color: var(--green); }
-.gate.fail .gate-v { color: var(--red); }
-.gate.warn .gate-v { color: var(--orange); }
-.gate-r { font-size: 11px; line-height: 1.45; color: var(--text-dim); }
+/* mode transform step */
+.pipe-step.mode-transform { border-color: var(--or-bd); }
+.pipe-step.mode-transform .pipe-icon { background: var(--or-dim); color: var(--or); }
 
-/* ── DECISION BLOCK ── */
-.decision-block {
-  border-radius: 12px;
-  padding: 22px;
-  text-align: center;
-  display: none;
-  margin-top: 14px;
-  position: relative;
-  overflow: hidden;
+/* ── PIPELINE ── */
+.pipeline { display: none; margin-bottom: 24px; }
+.pipeline.show { display: block; }
+.pipe-steps { display: flex; flex-direction: column; gap: 8px; }
+.pipe-step {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 10px;
+  padding: 14px 18px; display: flex; align-items: center; gap: 14px; transition: all 0.3s;
 }
-.decision-block::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  background: radial-gradient(circle at 50% 0%, white, transparent 70%);
+.pipe-step.active { border-color: var(--ac-bd); }
+.pipe-step.done { border-color: var(--gn-bd); background: var(--gn-dim); }
+.pipe-step.skipped { opacity: 0.5; }
+.pipe-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
 }
-.decision-block.show { display: block; }
-.decision-block.build { border: 2px solid var(--green-border); background: var(--green-dim); }
-.decision-block.test { border: 2px solid var(--orange-border); background: var(--orange-dim); }
-.decision-block.kill { border: 2px solid var(--red-border); background: var(--red-dim); }
-.dec-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-.dec-v { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; }
-.decision-block.build .dec-v { color: var(--green); }
-.decision-block.test .dec-v { color: var(--orange); }
-.decision-block.kill .dec-v { color: var(--red); }
-.dec-r { font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.5; }
+.pipe-icon.perplexity { background: rgba(77,159,255,0.12); }
+.pipe-icon.grok { background: rgba(255,140,0,0.12); }
+.pipe-icon.claude { background: rgba(200,255,0,0.12); }
+.pipe-icon.gpt { background: rgba(160,120,255,0.12); }
+.pipe-info { flex: 1; }
+.pipe-name { font-family: var(--mn); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dm); }
+.pipe-label { font-size: 12px; color: var(--mt); margin-top: 2px; }
+.pipe-step.active .pipe-label { color: var(--tx); animation: blink 1.5s infinite; }
+.pipe-step.done .pipe-label { color: var(--gn); }
+.pipe-badge {
+  font-family: var(--mn); font-size: 9px; padding: 3px 10px;
+  border-radius: 20px; text-transform: uppercase; letter-spacing: 0.1em;
+}
+.pipe-step.active .pipe-badge { background: var(--ac-dim); color: var(--ac); }
+.pipe-step.done .pipe-badge { background: var(--gn-dim); color: var(--gn); }
+.pipe-step.skipped .pipe-badge { background: var(--sf2); color: var(--mt); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-/* KILL OVERLAY */
-.kill-overlay {
-  display: none;
-  background: rgba(255,59,59,0.06);
-  border: 2px solid var(--red-border);
-  border-radius: 10px;
-  padding: 18px;
-  text-align: center;
-  margin-top: 14px;
-}
-.kill-overlay.show { display: block; }
-.kill-overlay-text {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--red);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-}
-.kill-overlay-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-family: var(--mono); }
+/* ── RESULTS ── */
+.results { display: none; }
+.results.show { display: block; }
 
-/* ── TABS ── */
-.tabs { display: flex; gap: 4px; margin-bottom: 14px; }
-.tab {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* Score Ring */
+.score-hero {
+  display: flex; align-items: center; justify-content: center; gap: 40px;
+  padding: 36px 28px; margin-bottom: 20px;
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 16px; flex-wrap: wrap;
 }
-.tab.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.score-ring-wrap { text-align: center; }
+.score-ring { width: 160px; height: 160px; position: relative; }
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring-bg { fill: none; stroke: var(--bd); stroke-width: 8; }
+.score-ring-fg { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s ease; }
+.score-ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+.score-ring-num { font-size: 42px; font-weight: 900; line-height: 1; }
+.score-ring-lbl { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.15em; }
 
-/* ── PRE-SELL ── */
-.presell-box {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--text);
-  white-space: pre-wrap;
-  min-height: 80px;
+.verdict-info { text-align: left; max-width: 400px; }
+.verdict-badge {
+  display: inline-block; padding: 6px 16px; border-radius: 8px;
+  font-family: var(--mn); font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px;
 }
-.char-count { font-family: var(--mono); font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 5px; }
-.char-count.over { color: var(--red); }
+.verdict-badge.build { background: var(--gn-dim); color: var(--gn); border: 1px solid var(--gn-bd); }
+.verdict-badge.skip { background: var(--rd-dim); color: var(--rd); border: 1px solid var(--rd-bd); }
+.verdict-badge.maybe { background: var(--or-dim); color: var(--or); border: 1px solid var(--or-bd); }
+.verdict-concept { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.verdict-summary { font-size: 13px; color: var(--dm); line-height: 1.6; }
+
+/* Cards */
+.card { background: var(--sf); border: 1px solid var(--bd); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+.card-head { padding: 14px 20px; border-bottom: 1px solid var(--bd); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-family: var(--mn); font-size: 10px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--dm); }
+.card-badge { font-family: var(--mn); font-size: 9px; padding: 2px 8px; border-radius: 12px; background: var(--sf2); color: var(--mt); }
+.card-body { padding: 18px 20px; }
+
+/* Score bars */
+.scores-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.score-lbl {
+  font-family: var(--mn); font-size: 10px; color: var(--mt);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  display: flex; justify-content: space-between; margin-bottom: 6px;
+}
+.score-bar { height: 6px; background: var(--bd); border-radius: 3px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+/* Gates */
+.gates-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.gate { background: var(--sf2); border: 1px solid var(--bd); border-radius: 10px; padding: 16px 14px; text-align: center; transition: all 0.3s; }
+.gate.pass { border-color: var(--gn-bd); background: var(--gn-dim); }
+.gate.fail { border-color: var(--rd-bd); background: var(--rd-dim); }
+.gate-q { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.gate-v { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.gate.pass .gate-v { color: var(--gn); }
+.gate.fail .gate-v { color: var(--rd); }
+.gate-r { font-size: 11px; color: var(--dm); line-height: 1.45; }
+
+/* Region bars */
+.region-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.region-name { font-size: 12px; min-width: 120px; color: var(--dm); }
+.region-bar { flex: 1; height: 22px; background: var(--bd); border-radius: 4px; overflow: hidden; }
+.region-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+.region-bar-num { font-family: var(--mn); font-size: 10px; font-weight: 600; color: #000; }
+.region-why { font-size: 10px; color: var(--mt); margin-top: -6px; margin-bottom: 8px; padding-left: 132px; }
+
+/* Content boxes */
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.content-box { background: var(--sf2); border: 1px solid var(--bd); border-radius: 8px; padding: 14px 16px; position: relative; }
+.content-lbl { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+.content-val { font-size: 13px; line-height: 1.55; color: var(--tx); }
 .copy-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 10px;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: all 0.2s;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  position: absolute; top: 10px; right: 10px;
+  background: var(--sf3); border: 1px solid var(--bd); color: var(--mt);
+  padding: 4px 10px; border-radius: 4px; font-family: var(--mn); font-size: 9px;
+  cursor: pointer; transition: all 0.2s;
 }
-.copy-btn:hover { border-color: var(--accent-border); color: var(--accent); }
-.copy-btn.done { border-color: var(--green); color: var(--green); }
+.copy-btn:hover { border-color: var(--ac-bd); color: var(--ac); }
 
-.offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Competitors table */
+.comp-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+.comp-table th { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.1em; text-align: left; padding: 6px 10px; }
+.comp-table td { background: var(--sf2); padding: 10px; font-size: 12px; color: var(--dm); }
+.comp-table td:first-child { border-radius: 6px 0 0 6px; font-weight: 600; color: var(--tx); }
+.comp-table td:last-child { border-radius: 0 6px 6px 0; }
 
-/* ── READINESS ── */
-.readiness-checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  user-select: none;
-}
-.check-row:hover { border-color: var(--border2); }
-.check-row.on { border-color: var(--green-border); background: var(--green-dim); }
-.check-box {
-  width: 17px; height: 17px;
-  border: 2px solid var(--border2);
-  border-radius: 4px;
+/* Revenue chart */
+.rev-chart { display: flex; align-items: flex-end; gap: 16px; height: 160px; padding: 10px 0; }
+.rev-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.rev-bar { width: 100%; border-radius: 4px 4px 0 0; transition: height 1s ease; min-height: 4px; }
+.rev-bar.revenue { background: var(--ac); }
+.rev-bar.costs { background: var(--rd); opacity: 0.6; }
+.rev-label { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; }
+.rev-val { font-family: var(--mn); font-size: 10px; color: var(--dm); }
+
+/* Next steps */
+.steps-list { counter-reset: step; }
+.step-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bd); }
+.step-item:last-child { border-bottom: none; }
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ac-dim); border: 1px solid var(--ac-bd);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
-  font-size: 10px;
+  font-family: var(--mn); font-size: 10px; color: var(--ac); flex-shrink: 0;
 }
-.check-row.on .check-box { border-color: var(--green); background: var(--green); color: #000; }
-.check-txt { font-size: 12px; color: var(--text-dim); }
-.check-row.on .check-txt { color: var(--text); }
-.ready-result {
-  font-family: var(--mono);
-  font-size: 11px;
-  text-align: center;
-  padding: 10px;
-  border-radius: 7px;
-  display: none;
-}
-.ready-result.yes { display: block; background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
-.ready-result.no { display: block; background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
+.step-text { font-size: 13px; color: var(--tx); line-height: 1.5; padding-top: 2px; }
 
-/* ── SIGNALS ── */
-.posted-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+/* Actions */
+.actions-bar { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.act-btn {
+  padding: 10px 20px; border-radius: 8px; font-family: var(--mn); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; text-transform: uppercase;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
-.post-btn {
-  background: var(--accent);
-  color: #000;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-family: var(--font);
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  letter-spacing: 0.03em;
-}
-.post-btn:hover { opacity: 0.85; }
-.countdown {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--text-muted);
-  display: none;
-  align-items: center;
-  gap: 6px;
-}
-.countdown.show { display: flex; }
-.cd-time { color: var(--orange); font-weight: 600; }
-.countdown.expired .cd-time { color: var(--red); }
+.act-btn.primary { background: var(--ac); color: #000; border: none; }
+.act-btn.primary:hover { opacity: 0.85; }
+.act-btn.outline { background: none; border: 1px solid var(--bd2); color: var(--dm); }
+.act-btn.outline:hover { border-color: var(--ac-bd); color: var(--ac); }
 
-.signals-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+/* History */
+.history-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--sf2); border: 1px solid var(--bd); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; margin-bottom: 6px;
 }
-.sig-card {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 12px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
+.history-item:hover { border-color: var(--bd2); }
+.history-score { font-size: 18px; font-weight: 800; min-width: 36px; text-align: center; }
+.history-info { flex: 1; }
+.history-concept { font-size: 13px; font-weight: 600; }
+.history-meta { font-family: var(--mn); font-size: 9px; color: var(--mt); margin-top: 2px; text-transform: uppercase; }
+.history-verdict {
+  font-family: var(--mn); font-size: 9px; padding: 3px 10px;
+  border-radius: 20px; text-transform: uppercase; letter-spacing: 0.08em;
 }
-.sig-card:active { transform: scale(0.97); }
-.sig-card.pay:hover, .sig-card.pay.hit { border-color: var(--green-border); background: var(--green-dim); }
-.sig-card.rep:hover, .sig-card.rep.hit { border-color: var(--accent-border); background: var(--accent-dim); }
-.sig-card.clk:hover, .sig-card.clk.hit { border-color: var(--orange-border); background: var(--orange-dim); }
-.sig-icon { font-size: 20px; margin-bottom: 5px; }
-.sig-num { font-size: 26px; font-weight: 800; }
-.sig-lbl { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+.history-verdict.build { background: var(--gn-dim); color: var(--gn); }
+.history-verdict.skip { background: var(--rd-dim); color: var(--rd); }
+.history-verdict.maybe { background: var(--or-dim); color: var(--or); }
 
-.sig-verdict {
-  margin-top: 14px;
-  padding: 13px;
-  border-radius: 8px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  display: none;
-}
-.sig-verdict.show { display: block; }
-.sig-verdict.build { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
-.sig-verdict.test { background: var(--orange-dim); color: var(--orange); border: 1px solid var(--orange-border); }
-.sig-verdict.kill { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.info-card { background: var(--sf2); border: 1px solid var(--bd); border-radius: 10px; padding: 16px; }
+.info-card-title { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+.info-val { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.info-sub { font-size: 11px; color: var(--dm); line-height: 1.5; }
 
-/* ── GITHUB ── */
-.github-status {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  display: none;
-}
-.github-status.show { display: block; }
-.gh-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.gh-info { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
-.gh-link { color: var(--blue); text-decoration: none; font-family: var(--mono); font-size: 11px; }
-.gh-link:hover { color: var(--accent); }
-.gh-creating { font-family: var(--mono); font-size: 11px; color: var(--text-muted); animation: blink 1.5s infinite; }
+/* Buzz */
+.buzz-item { background: var(--sf2); border: 1px solid var(--bd); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+.buzz-text { font-size: 12px; color: var(--tx); line-height: 1.5; font-style: italic; }
+.buzz-meta { font-family: var(--mn); font-size: 9px; color: var(--mt); margin-top: 4px; }
 
-/* ── GRAVEYARD ── */
-.grave-list { display: flex; flex-direction: column; gap: 7px; max-height: 260px; overflow-y: auto; }
-.grave-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.grave-idea { flex: 1; font-size: 12px; color: var(--text-dim); }
-.grave-date { font-family: var(--mono); font-size: 9px; color: var(--text-muted); white-space: nowrap; }
-.grave-tag {
-  font-family: var(--mono);
-  font-size: 9px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-}
-.grave-tag.kill { background: var(--red-dim); color: var(--red); }
-.grave-tag.test { background: var(--orange-dim); color: var(--orange); }
-.grave-tag.build { background: var(--green-dim); color: var(--green); }
-.grave-empty { font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-align: center; padding: 20px; }
+/* Biz */
+.biz-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.biz-card { background: var(--sf2); border: 1px solid var(--bd); border-radius: 8px; padding: 12px 14px; text-align: center; }
+.biz-val { font-size: 16px; font-weight: 800; color: var(--ac); }
+.biz-lbl { font-family: var(--mn); font-size: 9px; color: var(--mt); text-transform: uppercase; margin-top: 3px; }
 
-/* ── FOOTER BAR ── */
-.footer {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  background: rgba(8,8,8,0.97);
-  border-top: 1px solid var(--border);
-  padding: 11px 28px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 200;
-  backdrop-filter: blur(12px);
-}
-.footer-status { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-right: auto; }
-.f-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 7px 16px;
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 10px;
-  cursor: pointer;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  transition: all 0.2s;
-}
-.f-btn:hover { border-color: var(--border2); color: var(--text); }
-.f-btn.red:hover { border-color: var(--red-border); color: var(--red); }
+/* Tags */
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { background: var(--sf2); border: 1px solid var(--bd); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: var(--dm); }
+.tag.risk { border-color: var(--rd-bd); color: var(--rd); background: var(--rd-dim); }
+.tag.advantage { border-color: var(--gn-bd); color: var(--gn); background: var(--gn-dim); }
 
-/* ── TOAST ── */
+/* Toast */
 .toast {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%) translateY(16px);
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text);
-  opacity: 0;
-  transition: all 0.25s;
-  pointer-events: none;
-  z-index: 300;
-  white-space: nowrap;
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(16px);
+  background: var(--sf2); border: 1px solid var(--bd2); border-radius: 8px;
+  padding: 10px 20px; font-family: var(--mn); font-size: 11px; color: var(--tx);
+  opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 300;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-@media(max-width:640px){
-  .stats-bar{grid-template-columns:repeat(2,1fr);}
-  .gates-grid{grid-template-columns:1fr;}
-  .chips-grid{grid-template-columns:1fr;}
-  .offer-grid{grid-template-columns:1fr;}
-  .keys-panel{flex-direction:column;gap:10px;}
-  .key-group{width:100%;}
+@media(max-width:640px) {
+  .scores-grid, .info-grid, .content-grid { grid-template-columns: 1fr; }
+  .gates-grid, .biz-grid { grid-template-columns: 1fr; }
+  .score-hero { flex-direction: column; gap: 20px; }
+  .verdict-info { text-align: center; }
+  .region-name { min-width: 80px; }
+  .region-why { padding-left: 92px; }
 }
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header class="header">
   <div class="logo">
     <div class="logo-dot"></div>
-    IDEA FACTORY <span>/ v2</span>
+    IDEA FACTORY <span>/ v4</span>
   </div>
-  <div class="header-right">
-    <button class="new-idea-btn" onclick="resetSession()">+ New Idea</button>
+  <div class="nav-links">
+    <a href="/public/leaderboard">Leaderboard</a>
+    <a href="/public/graveyard">Graveyard</a>
   </div>
 </header>
 
-<!-- KEYS PANEL -->
-<div class="keys-panel">
-  <div class="key-group">
-    <div class="key-label">Claude API</div>
-    <input type="password" class="key-input" id="claudeKey" placeholder="sk-ant-..." autocomplete="off">
-    <div class="key-status"><div class="status-dot" id="claudeDot"></div><span id="claudeStatus">no key</span></div>
-  </div>
-  <div class="key-group">
-    <div class="key-label">GitHub PAT</div>
-    <input type="password" class="key-input" id="githubKey" placeholder="ghp_..." autocomplete="off">
-    <div class="key-status"><div class="status-dot" id="githubDot"></div><span id="githubStatus">no key</span></div>
-  </div>
-</div>
-
-<!-- TOAST -->
+<div class="engines" id="engines"></div>
 <div class="toast" id="toast"></div>
 
 <div class="main">
 
-  <!-- STATS -->
-  <div class="stats-bar">
-    <div class="stat-card"><div class="stat-num" id="sValidated">0</div><div class="stat-lbl">Validated</div></div>
-    <div class="stat-card"><div class="stat-num green" id="sBuilt">0</div><div class="stat-lbl">Built</div></div>
-    <div class="stat-card"><div class="stat-num red" id="sKilled">0</div><div class="stat-lbl">Killed</div></div>
-    <div class="stat-card"><div class="stat-num blue" id="sWeek">0</div><div class="stat-lbl">This Week</div></div>
+  <!-- INPUT -->
+  <div class="input-section" id="inputSection">
+    <div class="input-label">What's your idea?</div>
+    <div class="input-hint">Describe it like you're telling a friend. AI does all the research.</div>
+    <textarea id="ideaInput" rows="3" placeholder="e.g. An app that finds the cheapest flight by tracking prices across 50 airlines and alerts you when to buy..."></textarea>
+
+    <div class="mode-selector">
+      <button class="mode-btn active" data-mode="validate" onclick="setMode(this)">
+        <span class="mode-emoji">&#128161;</span>
+        <span class="mode-name">Validate</span>
+        <span class="mode-desc">Analyze your idea as-is</span>
+      </button>
+      <button class="mode-btn" data-mode="trendy" onclick="setMode(this)">
+        <span class="mode-emoji">&#128640;</span>
+        <span class="mode-name">Trendy</span>
+        <span class="mode-desc">Remix with trending markets</span>
+      </button>
+      <button class="mode-btn" data-mode="wild" onclick="setMode(this)">
+        <span class="mode-emoji">&#129412;</span>
+        <span class="mode-name">Wild</span>
+        <span class="mode-desc">Unexpected creative twist</span>
+      </button>
+    </div>
+
+    <div class="submit-row">
+      <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+        <span id="btnText">Validate This Idea</span>
+      </button>
+    </div>
+    <div class="examples-row">
+      <div class="example-chip" onclick="useExample(this)">AI resume builder for non-tech people</div>
+      <div class="example-chip" onclick="useExample(this)">Meal kit service for bodybuilders</div>
+      <div class="example-chip" onclick="useExample(this)">Browser extension that blocks clickbait</div>
+    </div>
   </div>
 
-  <!-- S1: PAIN INPUT -->
-  <div class="section" id="sec-pain">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">1</div>Pain Evidence</div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted)">AI will extract from URL or use your input</div>
+  <!-- PIPELINE -->
+  <div class="pipeline" id="pipeline">
+    <div class="pipe-steps" id="pipeSteps">
+      <div class="pipe-step mode-transform" id="pipe-mode" style="display:none">
+        <div class="pipe-icon">&#127922;</div>
+        <div class="pipe-info">
+          <div class="pipe-name">Mode Remix</div>
+          <div class="pipe-label" id="pipe-mode-label">Transforming your idea...</div>
+        </div>
+        <div class="pipe-badge" id="pipe-mode-badge">Waiting</div>
+      </div>
+      <div class="pipe-step" id="pipe-perplexity">
+        <div class="pipe-icon perplexity">&#128269;</div>
+        <div class="pipe-info">
+          <div class="pipe-name">Perplexity</div>
+          <div class="pipe-label" id="pipe-perplexity-label">Web search for competitors &amp; market data</div>
+        </div>
+        <div class="pipe-badge" id="pipe-perplexity-badge">Waiting</div>
+      </div>
+      <div class="pipe-step" id="pipe-grok">
+        <div class="pipe-icon grok">&#120143;</div>
+        <div class="pipe-info">
+          <div class="pipe-name">Grok</div>
+          <div class="pipe-label" id="pipe-grok-label">Scanning X for social sentiment</div>
+        </div>
+        <div class="pipe-badge" id="pipe-grok-badge">Waiting</div>
+      </div>
+      <div class="pipe-step" id="pipe-claude">
+        <div class="pipe-icon claude">&#129504;</div>
+        <div class="pipe-info">
+          <div class="pipe-name">Claude</div>
+          <div class="pipe-label" id="pipe-claude-label">Deep strategic analysis</div>
+        </div>
+        <div class="pipe-badge" id="pipe-claude-badge">Waiting</div>
+      </div>
+      <div class="pipe-step" id="pipe-gpt">
+        <div class="pipe-icon gpt">&#128176;</div>
+        <div class="pipe-info">
+          <div class="pipe-name">GPT-4o</div>
+          <div class="pipe-label" id="pipe-gpt-label">Business model &amp; revenue projections</div>
+        </div>
+        <div class="pipe-badge" id="pipe-gpt-badge">Waiting</div>
+      </div>
     </div>
-    <div class="sec-body">
+  </div>
 
-      <div class="field">
-        <div class="field-label">Scrape pain from a URL <span class="field-hint">optional — paste Reddit/forum link</span></div>
-        <div class="scraper-row">
-          <input type="url" id="scrapeUrl" placeholder="https://reddit.com/r/... or any forum URL">
-          <button class="scrape-btn" id="scrapeBtn" onclick="scrapeUrl()">⚡ Extract Pain</button>
+  <!-- RESULTS -->
+  <div class="results" id="results">
+
+    <!-- Score Hero -->
+    <div class="score-hero" id="scoreHero">
+      <div class="score-ring-wrap">
+        <div class="score-ring">
+          <svg viewBox="0 0 160 160" width="160" height="160">
+            <circle class="score-ring-bg" cx="80" cy="80" r="70"/>
+            <circle class="score-ring-fg" id="scoreArc" cx="80" cy="80" r="70"
+              stroke-dasharray="440" stroke-dashoffset="440"/>
+          </svg>
+          <div class="score-ring-text">
+            <div class="score-ring-num" id="scoreNum">0</div>
+            <div class="score-ring-lbl">Score</div>
+          </div>
         </div>
       </div>
-
-      <div class="field">
-        <div class="field-label">Who is complaining? <span class="field-hint">buyer type</span></div>
-        <input type="text" id="painWho" placeholder="e.g. Solo founders, HR managers at startups, freelancers in UAE...">
+      <div class="verdict-info">
+        <div class="verdict-badge" id="verdictBadge">-</div>
+        <div class="verdict-concept" id="verdictConcept"></div>
+        <div class="verdict-summary" id="verdictSummary"></div>
       </div>
-
-      <div class="field">
-        <div class="field-label">
-          Exact complaints / quotes
-          <span class="field-hint">paste 3+ real quotes from Reddit, X, forums</span>
-        </div>
-        <textarea id="painQuotes" rows="5" placeholder="Paste real complaints here. More context = better AI output." oninput="checkPainLength()"></textarea>
-        <div class="word-warn" id="painWarn">⚠ Add more pain evidence — paste at least 2 separate complaints</div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Frequency & urgency <span class="field-hint">how often, how painful</span></div>
-        <input type="text" id="painFreq" placeholder="e.g. Daily blocker, stops revenue, costs hours every week...">
-      </div>
-
-      <div class="field">
-        <div class="field-label">Name 3–5 real potential buyers <span class="field-hint">forces Gate 1 realism</span></div>
-        <input type="text" id="painBuyers" placeholder="e.g. Arie Finance (Mauritius fintech), small HR teams in Abu Dhabi, solo devs on Indie Hackers...">
-      </div>
-
     </div>
+
+    <div style="text-align:center;margin-bottom:18px">
+      <span id="aiSources" style="font-family:var(--mn);font-size:10px;color:var(--mt)"></span>
+    </div>
+
+    <!-- 4 Scores -->
+    <div class="card" id="scoresCard">
+      <div class="card-head"><div class="card-title">Detailed Scores</div><div class="card-badge">How We Scored It</div></div>
+      <div class="card-body"><div class="scores-grid" id="scoresGrid"></div></div>
+    </div>
+
+    <!-- 3 Gates -->
+    <div class="card" id="gatesCard">
+      <div class="card-head"><div class="card-title">3 Key Questions</div></div>
+      <div class="card-body"><div class="gates-grid" id="gatesGrid"></div></div>
+    </div>
+
+    <!-- About -->
+    <div class="card" id="aboutCard">
+      <div class="card-head"><div class="card-title">About This Idea</div></div>
+      <div class="card-body"><div class="scores-grid" id="aboutGrid"></div></div>
+    </div>
+
+    <!-- Timing & Moat -->
+    <div class="card" id="timingMoatCard">
+      <div class="card-head"><div class="card-title">Timing &amp; Defensibility</div></div>
+      <div class="card-body"><div class="info-grid" id="timingMoatGrid"></div></div>
+    </div>
+
+    <!-- Regional Demand -->
+    <div class="card" id="regionCard">
+      <div class="card-head"><div class="card-title">Where's The Demand?</div><div class="card-badge">Regional Scores</div></div>
+      <div class="card-body" id="regionBody"></div>
+    </div>
+
+    <!-- Competitors -->
+    <div class="card" id="compCard" style="display:none">
+      <div class="card-head"><div class="card-title">Competitors Found</div><div class="card-badge">via Perplexity</div></div>
+      <div class="card-body" id="compBody"></div>
+    </div>
+
+    <!-- Social Buzz -->
+    <div class="card" id="buzzCard" style="display:none">
+      <div class="card-head"><div class="card-title">What People Are Saying</div><div class="card-badge">via Grok / X</div></div>
+      <div class="card-body" id="buzzBody"></div>
+    </div>
+
+    <!-- Business Model -->
+    <div class="card" id="bizCard" style="display:none">
+      <div class="card-head"><div class="card-title">Business Model</div><div class="card-badge">via GPT-4o</div></div>
+      <div class="card-body" id="bizBody"></div>
+    </div>
+
+    <!-- Revenue Projections -->
+    <div class="card" id="revCard" style="display:none">
+      <div class="card-head"><div class="card-title">Revenue Projections</div><div class="card-badge">Year 1 Forecast</div></div>
+      <div class="card-body" id="revBody"></div>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="card" id="stepsCard">
+      <div class="card-head"><div class="card-title">What To Do Next</div></div>
+      <div class="card-body"><div class="steps-list" id="stepsList"></div></div>
+    </div>
+
+    <!-- Content -->
+    <div class="card" id="contentCard">
+      <div class="card-head"><div class="card-title">Ready-to-Post Content</div></div>
+      <div class="card-body"><div class="content-grid" id="contentGrid"></div></div>
+    </div>
+
+    <div class="actions-bar" id="actionsBar"></div>
   </div>
 
-  <!-- S2: RAW IDEA -->
-  <div class="section" id="sec-idea">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">2</div>Raw Idea</div>
-    </div>
-    <div class="sec-body">
-      <div class="field">
-        <textarea class="idea-input" id="rawIdea" rows="4" placeholder="Describe your idea in plain language. No polish needed — just what you want to build and why."></textarea>
-      </div>
-      <div class="analyze-wrap">
-        <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">
-          ⚡ Validate This Idea
-        </button>
-        <div class="analyze-hint">Ctrl+Enter to run · All 5 prompts run automatically</div>
-      </div>
-      <div class="progress-wrap" id="progressWrap">
-        <div class="progress-steps">
-          <div class="prog-step" id="ps1"></div>
-          <div class="prog-step" id="ps2"></div>
-          <div class="prog-step" id="ps3"></div>
-          <div class="prog-step" id="ps4"></div>
-          <div class="prog-step" id="ps5"></div>
-        </div>
-        <div class="prog-label" id="progLabel">Initialising...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- S3: ANALYSIS -->
-  <div class="section locked" id="sec-analysis">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">3</div>AI Analysis</div>
-    </div>
-    <div class="sec-body">
-      <div class="chips-grid">
-        <div class="chip" id="chip-concept"><div class="chip-lbl">What You're Selling</div><div class="chip-val" id="v-concept">—</div></div>
-        <div class="chip" id="chip-user"><div class="chip-lbl">Target Buyer</div><div class="chip-val" id="v-user">—</div></div>
-        <div class="chip" id="chip-pain"><div class="chip-lbl">Core Pain</div><div class="chip-val" id="v-pain">—</div></div>
-        <div class="chip" id="chip-value"><div class="chip-lbl">Value Promise</div><div class="chip-val" id="v-value">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- S4: GATES -->
-  <div class="section locked" id="sec-gates">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">4</div>Decision Gates</div>
-    </div>
-    <div class="sec-body">
-      <div class="gates-grid">
-        <div class="gate" id="gate1"><div class="gate-lbl">Gate 1 — Buyers</div><div class="gate-v" id="g1v">—</div><div class="gate-r" id="g1r"></div></div>
-        <div class="gate" id="gate2"><div class="gate-lbl">Gate 2 — Revenue Speed</div><div class="gate-v" id="g2v">—</div><div class="gate-r" id="g2r"></div></div>
-        <div class="gate" id="gate3"><div class="gate-lbl">Gate 3 — Build Time</div><div class="gate-v" id="g3v">—</div><div class="gate-r" id="g3r"></div></div>
-      </div>
-      <div class="decision-block" id="decisionBlock">
-        <div class="dec-lbl">Final Recommendation</div>
-        <div class="dec-v" id="decV">—</div>
-        <div class="dec-r" id="decR"></div>
-      </div>
-      <div class="kill-overlay" id="killOverlay">
-        <div class="kill-overlay-text">⛔ IDEA KILLED — DO NOT PROCEED</div>
-        <div class="kill-overlay-sub">Archive this. Move to the next idea. The system has spoken.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- S5: PRE-SELL (locked if kill) -->
-  <div class="section locked" id="sec-presell">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">5</div>Pre-Sell Generator</div>
-    </div>
-    <div class="sec-body">
-      <div style="margin-bottom:16px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">Post Readiness — answer honestly before posting</div>
-        <div class="readiness-checks">
-          <div class="check-row" onclick="toggleCheck(this)"><div class="check-box"></div><div class="check-txt">Would I post this right now without hesitation?</div></div>
-          <div class="check-row" onclick="toggleCheck(this)"><div class="check-box"></div><div class="check-txt">Does this describe a pain someone actually feels today?</div></div>
-          <div class="check-row" onclick="toggleCheck(this)"><div class="check-box"></div><div class="check-txt">Is a clear price or offer stated in the post?</div></div>
-        </div>
-        <div class="ready-result" id="readyResult"></div>
-      </div>
-
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('reddit',this)">Reddit</button>
-        <button class="tab" onclick="switchTab('x',this)">X / Twitter</button>
-        <button class="tab" onclick="switchTab('offer',this)">Offer</button>
-      </div>
-
-      <div class="tab-panel active" id="tab-reddit">
-        <div class="presell-box" id="ps-reddit">—</div>
-        <button class="copy-btn" onclick="doCopy('ps-reddit',this)">Copy Reddit Post</button>
-      </div>
-      <div class="tab-panel" id="tab-x">
-        <div class="presell-box" id="ps-x">—</div>
-        <div class="char-count" id="x-chars">0 / 280</div>
-        <button class="copy-btn" onclick="doCopy('ps-x',this)">Copy X Post</button>
-      </div>
-      <div class="tab-panel" id="tab-offer">
-        <div class="offer-grid">
-          <div class="chip show"><div class="chip-lbl">One-Line Offer</div><div class="chip-val" id="ps-offer">—</div></div>
-          <div class="chip show"><div class="chip-lbl">Price Suggestion</div><div class="chip-val" id="ps-price">—</div></div>
-          <div class="chip show" style="grid-column:span 2"><div class="chip-lbl">CTA</div><div class="chip-val" id="ps-cta">—</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- S6: SIGNAL TRACKER -->
-  <div class="section locked" id="sec-signals">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">6</div>Signal Tracker — 48h Window</div>
-    </div>
-    <div class="sec-body">
-      <div class="posted-row">
-        <button class="post-btn" onclick="startCountdown()">▶ I Posted — Start 48h Clock</button>
-        <div class="countdown" id="cdWrap">Window: <span class="cd-time" id="cdTime">48:00:00</span> remaining</div>
-      </div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">
-        Click to log each signal as it arrives
-      </div>
-      <div class="signals-grid">
-        <div class="sig-card pay" onclick="logSig('pay')"><div class="sig-icon">💰</div><div class="sig-num" id="sn-pay">0</div><div class="sig-lbl">Payment</div></div>
-        <div class="sig-card rep" onclick="logSig('rep')"><div class="sig-icon">🔥</div><div class="sig-num" id="sn-rep">0</div><div class="sig-lbl">Strong Reply</div></div>
-        <div class="sig-card clk" onclick="logSig('clk')"><div class="sig-icon">👆</div><div class="sig-num" id="sn-clk">0</div><div class="sig-lbl">Click Only</div></div>
-      </div>
-      <div class="sig-verdict" id="sigVerdict"></div>
-    </div>
-  </div>
-
-  <!-- S7: GITHUB -->
-  <div class="section locked" id="sec-github">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">7</div>GitHub Repo</div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted)">Auto-created on BUILD NOW</div>
-    </div>
-    <div class="sec-body">
-      <div class="github-status" id="ghStatus">
-        <div class="gh-row">
-          <div class="gh-info" id="ghInfo">Waiting for BUILD NOW decision...</div>
-          <a href="#" id="ghLink" class="gh-link" style="display:none" target="_blank">Open Repo →</a>
+  <!-- History -->
+  <div class="card" id="historyCard" style="margin-top:30px">
+    <div class="card-head"><div class="card-title">Recent Ideas</div></div>
+    <div class="card-body">
+      <div id="historyList">
+        <div style="font-family:var(--mn);font-size:11px;color:var(--mt);text-align:center;padding:14px">
+          No ideas yet. Submit one above!
         </div>
       </div>
     </div>
   </div>
 
-  <!-- S8: GRAVEYARD -->
-  <div class="section" id="sec-graveyard">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-num">8</div>Idea Graveyard</div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted)">Past decisions · never re-submit killed ideas</div>
-    </div>
-    <div class="sec-body">
-      <div class="grave-list" id="graveList"><div class="grave-empty">No ideas processed yet.</div></div>
-    </div>
-  </div>
-
-</div>
-
-<!-- FOOTER -->
-<div class="footer">
-  <div class="footer-status" id="footerStatus">No active session</div>
-  <button class="f-btn" onclick="exportJSON()">Export JSON</button>
-  <button class="f-btn" onclick="saveIdea()">Save</button>
-  <button class="f-btn red" onclick="resetSession()">Reset</button>
 </div>
 
 <script>
-// ══════════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════════
-let idea = {
-  id:'', date:'', pain_who:'', pain_quotes:'', pain_freq:'', pain_buyers:'',
-  raw_idea:'', concept:'', target_user:'', core_pain:'', value_promise:'',
-  g1:'', g1r:'', g2:'', g2r:'', g3:'', g3r:'',
-  reddit:'', x_post:'', offer:'', price:'', cta:'',
-  pay:0, rep:0, clk:0, countdown_start:null,
-  final_decision:'', repo_url:''
-};
-let stats = {validated:0, built:0, killed:0, week:0, week_start:''};
-let cdInterval = null;
+let currentResult = null;
+let isAnalyzing = false;
 
-// ══════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  // Load keys — use localStorage for persistence (personal local tool)
-  const ck = localStorage.getItem('if_claude');
-  const gk = localStorage.getItem('if_github');
-  if (ck) { document.getElementById('claudeKey').value = ck; setDot('claude', true); }
-  if (gk) { document.getElementById('githubKey').value = gk; setDot('github', true); }
-
-  document.getElementById('claudeKey').addEventListener('input', e => {
-    const v = e.target.value.trim();
-    if (v.startsWith('sk-ant-') || v.startsWith('sk-')) {
-      localStorage.setItem('if_claude', v);
-      setDot('claude', true);
-    } else { setDot('claude', false); }
+  checkEngines();
+  loadHistory();
+  document.getElementById('ideaInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
   });
-
-  document.getElementById('githubKey').addEventListener('input', e => {
-    const v = e.target.value.trim();
-    if (v.startsWith('ghp_') || v.startsWith('github_')) {
-      localStorage.setItem('if_github', v);
-      setDot('github', true);
-    } else { setDot('github', false); }
-  });
-
-  // Ctrl+Enter hotkey
-  document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runAnalysis();
-  });
-
-  loadStats();
-  loadGraveyard();
-  loadGhStatus();
 });
 
-function setDot(which, on) {
-  document.getElementById(which + 'Dot').className = 'status-dot' + (on ? ' on' : '');
-  document.getElementById(which + 'Status').textContent = on ? 'ready' : 'no key';
+async function checkEngines() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const el = document.getElementById('engines');
+    const names = { claude: 'Claude', perplexity: 'Perplexity', gpt4o: 'GPT-4o', grok: 'Grok' };
+    el.innerHTML = Object.entries(d.engines || {}).map(([k, v]) =>
+      `<div class="engine"><div class="engine-dot ${v ? 'on' : 'off'}"></div>${esc(names[k] || k)}</div>`
+    ).join('');
+  } catch(e) {}
 }
 
-// ══════════════════════════════════════════════════
-// PAIN VALIDATION
-// ══════════════════════════════════════════════════
-function checkPainLength() {
-  const q = document.getElementById('painQuotes').value.trim();
-  const lines = q.split('\n').filter(l => l.trim().length > 0);
-  const warn = document.getElementById('painWarn');
-  warn.className = 'word-warn' + (q.length < 80 || lines.length < 2 ? ' show' : '');
+function useExample(el) {
+  document.getElementById('ideaInput').value = el.textContent;
+  document.getElementById('ideaInput').focus();
 }
 
-// ══════════════════════════════════════════════════
-// URL SCRAPER — fetch via Claude API (no CORS issue)
-// ══════════════════════════════════════════════════
-async function scrapeUrl() {
-  const url = document.getElementById('scrapeUrl').value.trim();
-  const key = localStorage.getItem('if_claude');
-  if (!url) { toast('Paste a URL first'); return; }
-  if (!key) { toast('Add Claude API key first'); return; }
+let currentMode = 'validate';
+function setMode(el) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentMode = el.dataset.mode;
+}
 
-  const btn = document.getElementById('scrapeBtn');
+async function analyze() {
+  const idea = document.getElementById('ideaInput').value.trim();
+  if (!idea || isAnalyzing) return;
+  isAnalyzing = true;
+  const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
-  btn.textContent = 'Extracting...';
+  document.getElementById('btnText').textContent = 'Analyzing...';
+  document.getElementById('pipeline').classList.add('show');
+  document.getElementById('results').classList.remove('show');
 
-  try {
-    // Use Claude to fetch + summarise the page content
-    const result = await callClaude(key, `
-You are a pain research assistant. I will give you a URL. 
-Fetch the content mentally based on the URL pattern and extract or infer the user complaints and pain points that would likely exist on that page.
-If it's a Reddit URL, extract the typical complaints in that subreddit about the topic.
-If it's a forum, extract the pain points discussed.
-
-URL: ${url}
-
-Return ONLY a plain text list of 5-8 specific pain complaints or quotes (no JSON, no markdown headers).
-Each complaint on a new line. Make them sound like real user frustrations.
-Start directly with the complaints.
-    `.trim());
-
-    document.getElementById('painQuotes').value = result.trim();
-    checkPainLength();
-    toast('✓ Pain extracted from URL');
-  } catch(e) {
-    toast('Extract failed: ' + e.message);
+  // Reset pipeline steps
+  ['perplexity','grok','claude','gpt'].forEach(ai => {
+    document.getElementById('pipe-' + ai).className = 'pipe-step';
+    document.getElementById('pipe-' + ai + '-badge').textContent = 'Waiting';
+  });
+  // Show/hide mode step
+  const modeStep = document.getElementById('pipe-mode');
+  if (currentMode !== 'validate') {
+    modeStep.style.display = 'flex';
+    modeStep.className = 'pipe-step mode-transform';
+    document.getElementById('pipe-mode-badge').textContent = 'Waiting';
+    document.getElementById('pipe-mode-label').textContent = currentMode === 'trendy'
+      ? 'Remixing with trending markets...' : 'Generating a wild twist...';
+  } else {
+    modeStep.style.display = 'none';
   }
 
-  btn.disabled = false;
-  btn.textContent = '⚡ Extract Pain';
-}
-
-// ══════════════════════════════════════════════════
-// MAIN ANALYSIS PIPELINE
-// ══════════════════════════════════════════════════
-async function runAnalysis() {
-  const key = localStorage.getItem('if_claude');
-  if (!key) { toast('⚠ Add Claude API key first'); return; }
-
-  const who = document.getElementById('painWho').value.trim();
-  const quotes = document.getElementById('painQuotes').value.trim();
-  const freq = document.getElementById('painFreq').value.trim();
-  const buyers = document.getElementById('painBuyers').value.trim();
-  const rawIdea = document.getElementById('rawIdea').value.trim();
-
-  if (!quotes || !rawIdea) { toast('⚠ Fill pain quotes and your idea'); return; }
-  if (quotes.length < 80 || quotes.split('\n').filter(l=>l.trim()).length < 2) {
-    toast('⚠ Add at least 2 separate complaints (80+ chars)'); return;
-  }
-  if (!buyers) { toast('⚠ Name at least 3 real potential buyers'); return; }
-
-  // Reset UI
-  resetOutputUI();
-  setLoading(true);
-
-  idea.id = Date.now().toString();
-  idea.date = new Date().toISOString();
-  idea.pain_who = who; idea.pain_quotes = quotes;
-  idea.pain_freq = freq; idea.pain_buyers = buyers;
-  idea.raw_idea = rawIdea;
-  idea.pay = 0; idea.rep = 0; idea.clk = 0;
-  idea.repo_url = '';
-
   try {
-    // ── STEP 1: Analysis ──
-    setStep(1, 'Analysing pain signals...');
-    const analysis = await callClaude(key, promptAnalysis(who, quotes, freq, buyers, rawIdea));
-    const a = parseJSON(analysis);
-    if (!a) throw new Error('Analysis parse failed');
-
-    idea.concept = a.concept; idea.target_user = a.target_user;
-    idea.core_pain = a.core_pain; idea.value_promise = a.value_promise;
-    showChips(a);
-    unlock('sec-analysis');
-    scrollTo('sec-analysis');
-
-    // ── STEP 2: Gates ──
-    setStep(2, 'Running decision gates...');
-    const gates = await callClaude(key, promptGates(a, buyers));
-    const g = parseJSON(gates);
-    if (!g) throw new Error('Gates parse failed');
-
-    idea.g1=g.gate_1; idea.g1r=g.gate_1_reason;
-    idea.g2=g.gate_2; idea.g2r=g.gate_2_reason;
-    idea.g3=g.gate_3; idea.g3r=g.gate_3_reason;
-
-    showGates(g);
-    unlock('sec-gates');
-    scrollTo('sec-gates');
-
-    const decision = calcDecision(g.gate_1, g.gate_2, g.gate_3);
-    idea.final_decision = decision;
-    showDecision(decision, g.decision_reason || '');
-
-    // ── KILL PATH ──
-    if (decision === 'KILL') {
-      setLoading(false);
-      document.getElementById('killOverlay').className = 'kill-overlay show';
-      document.getElementById('sec-presell').classList.add('killed-lock');
-      document.getElementById('sec-signals').classList.add('killed-lock');
-      document.getElementById('sec-github').classList.add('killed-lock');
-      archiveGrave(idea);
-      bumpStats('killed');
-      autoSave();
-      toast('Idea killed. Move to the next one.');
-      return;
-    }
-
-    // ── STEP 3: Pre-sell ──
-    setStep(3, 'Writing pre-sell content...');
-    const ps = await callClaude(key, promptPresell(a));
-    const p = parseJSON(ps);
-    if (!p) throw new Error('Presell parse failed');
-
-    idea.reddit=p.reddit; idea.x_post=p.x_post;
-    idea.offer=p.offer_line; idea.price=p.price; idea.cta=p.cta;
-    showPresell(p);
-    unlock('sec-presell');
-    scrollTo('sec-presell');
-
-    // Auto-copy reddit post
-    try { await navigator.clipboard.writeText(p.reddit || ''); toast('✓ Reddit post auto-copied to clipboard'); } catch(_){}
-
-    // ── STEP 4: Signal tracker unlock ──
-    setStep(4, 'Preparing signal tracker...');
-    unlock('sec-signals');
-    resetSigUI();
-
-    // ── STEP 5: GitHub repo (if BUILD NOW) ──
-    setStep(5, 'Creating GitHub repo...');
-    unlock('sec-github');
-    document.getElementById('ghStatus').className = 'github-status show';
-
-    if (decision === 'BUILD NOW') {
-      const ghKey = localStorage.getItem('if_github');
-      if (ghKey) {
-        await createGithubRepo(ghKey, idea);
-      } else {
-        document.getElementById('ghInfo').textContent = 'Add GitHub PAT to auto-create repo';
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idea, mode: currentMode })
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try { handleSSE(JSON.parse(line.slice(6))); } catch(e) {}
       }
-      bumpStats('built');
-    } else {
-      document.getElementById('ghInfo').textContent = 'Repo created on BUILD NOW only (current: TEST FIRST)';
-      bumpStats('validated');
     }
-
-    archiveGrave(idea);
-    autoSave();
-    setLoading(false);
-    document.getElementById('footerStatus').textContent = rawIdea.substring(0,50) + '...';
-    toast('✓ Analysis complete');
-
   } catch(e) {
-    setLoading(false);
-    toast('Error: ' + e.message);
+    toast('Something went wrong. Check console for details.');
     console.error(e);
   }
+  isAnalyzing = false;
+  btn.disabled = false;
+  document.getElementById('btnText').textContent = 'Validate This Idea';
 }
 
-// ══════════════════════════════════════════════════
-// PROMPTS
-// ══════════════════════════════════════════════════
-function promptAnalysis(who, quotes, freq, buyers, rawIdea) {
-  return `You are a ruthless startup idea validator. Return ONLY valid JSON, no markdown, no preamble, no explanation.
-
-PAIN EVIDENCE:
-Who complains: ${who}
-Complaint quotes: ${quotes}
-Frequency/urgency: ${freq}
-Named potential buyers: ${buyers}
-
-RAW IDEA: ${rawIdea}
-
-Return exactly this JSON:
-{
-  "concept": "One sentence — what the product actually does",
-  "target_user": "The specific person who would pay for this RIGHT NOW",
-  "core_pain": "The exact pain being solved in one sentence",
-  "value_promise": "The concrete outcome they get — be specific, not vague"
-}`;
-}
-
-function promptGates(a, buyers) {
-  return `You are a brutally honest startup validator. Return ONLY valid JSON, no markdown.
-
-PRODUCT: ${a.concept}
-TARGET USER: ${a.target_user}
-CORE PAIN: ${a.core_pain}
-NAMED BUYERS: ${buyers}
-
-Evaluate against 3 binary gates:
-Gate 1: Can 10 specific real people/businesses realistically pay for this NOW? (named buyers help)
-Gate 2: Can money enter within 7 days of posting a pre-sell?
-Gate 3: Can a first usable version be built in 8 hours or less?
-
-Return exactly this JSON:
-{
-  "gate_1": "PASS or FAIL",
-  "gate_1_reason": "2 sentence verdict on buyer reality",
-  "gate_2": "PASS or FAIL",
-  "gate_2_reason": "2 sentence verdict on revenue speed",
-  "gate_3": "PASS or FAIL",
-  "gate_3_reason": "2 sentence verdict on build complexity",
-  "decision_reason": "One brutal honest sentence explaining the recommendation"
-}
-
-Be ruthless. Do not be encouraging to protect bad ideas. Gate 1 or Gate 2 fail = KILL regardless.`;
-}
-
-function promptPresell(a) {
-  return `You are a direct-response copywriter. Return ONLY valid JSON, no markdown, no preamble.
-
-PRODUCT: ${a.concept}
-BUYER: ${a.target_user}
-PAIN: ${a.core_pain}
-VALUE: ${a.value_promise}
-
-Return exactly this JSON:
-{
-  "reddit": "A Reddit post 100-130 words. Does NOT sound like an ad. Lead with the pain experience. Ask if others face it. Mention the solution casually at the end.",
-  "x_post": "A single tweet UNDER 240 characters. Pain-first. Solution hinted. Ends with a question or CTA.",
-  "offer_line": "One sentence: who it is for, what it does, what they get.",
-  "price": "One specific price in USD. Not a range. Pick the right number.",
-  "cta": "One action sentence. What should the buyer do right now."
-}`;
-}
-
-// ══════════════════════════════════════════════════
-// CLAUDE API CALL
-// ══════════════════════════════════════════════════
-async function callClaude(key, prompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1200,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Claude API error ' + res.status);
-  }
-
-  const data = await res.json();
-  return data.content[0].text;
-}
-
-function parseJSON(text) {
-  try { return JSON.parse(text.replace(/```json|```/g,'').trim()); }
-  catch {
-    const m = text.match(/\{[\s\S]*\}/);
-    if (m) { try { return JSON.parse(m[0]); } catch{} }
-    return null;
-  }
-}
-
-// ══════════════════════════════════════════════════
-// GITHUB REPO CREATION
-// ══════════════════════════════════════════════════
-async function createGithubRepo(token, ideaData) {
-  const ghInfo = document.getElementById('ghInfo');
-  const ghLink = document.getElementById('ghLink');
-
-  try {
-    ghInfo.textContent = 'Creating repo...';
-    ghInfo.className = 'gh-creating';
-
-    // 1. Get username
-    const meRes = await fetch('https://api.github.com/user', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (!meRes.ok) throw new Error('GitHub auth failed');
-    const me = await meRes.json();
-
-    // 2. Create repo
-    const repoName = 'idea-' + ideaData.concept.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40) + '-' + Date.now().toString().slice(-4);
-    const createRes = await fetch('https://api.github.com/user/repos', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'token ' + token,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: repoName,
-        description: ideaData.concept,
-        private: true,
-        auto_init: false
-      })
-    });
-    if (!createRes.ok) {
-      const e = await createRes.json();
-      throw new Error(e.message || 'Repo creation failed');
+function handleSSE(evt) {
+  if (evt.type === 'step') {
+    const aiMap = { perplexity: 'perplexity', grok: 'grok', claude: 'claude', gpt: 'gpt', mode: 'mode' };
+    const key = aiMap[evt.ai];
+    if (!key) return;
+    const el = document.getElementById('pipe-' + key);
+    const label = document.getElementById('pipe-' + key + '-label');
+    const badge = document.getElementById('pipe-' + key + '-badge');
+    if (!el) return;
+    if (evt.status === 'start') {
+      el.className = key === 'mode' ? 'pipe-step mode-transform active' : 'pipe-step active';
+      label.textContent = evt.label || 'Working...';
+      badge.textContent = 'Running';
+    } else if (evt.status === 'done') {
+      el.className = key === 'mode' ? 'pipe-step mode-transform done' : 'pipe-step done';
+      label.textContent = evt.summary || 'Done';
+      badge.textContent = 'Done';
+    } else if (evt.status === 'skipped') {
+      el.className = 'pipe-step skipped';
+      label.textContent = evt.summary || 'Skipped';
+      badge.textContent = 'Skipped';
     }
-    const repo = await createRes.json();
-
-    // 3. Push README.md with idea snapshot
-    const readme = buildReadme(ideaData);
-    const readmeB64 = btoa(unescape(encodeURIComponent(readme)));
-    await fetch(`https://api.github.com/repos/${me.login}/${repoName}/contents/README.md`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'token ' + token,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: 'Initial idea snapshot — Idea Factory v2',
-        content: readmeB64
-      })
-    });
-
-    // 4. Push idea JSON snapshot
-    const jsonB64 = btoa(unescape(encodeURIComponent(JSON.stringify(ideaData, null, 2))));
-    await fetch(`https://api.github.com/repos/${me.login}/${repoName}/contents/idea-snapshot.json`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'token ' + token,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: 'Idea Factory JSON snapshot',
-        content: jsonB64
-      })
-    });
-
-    idea.repo_url = repo.html_url;
-    ghInfo.className = 'gh-info';
-    ghInfo.textContent = '✓ Repo created: ' + repoName;
-    ghLink.href = repo.html_url;
-    ghLink.style.display = 'inline';
-
-    localStorage.setItem('if_last_repo', JSON.stringify({ name: repoName, url: repo.html_url, idea: ideaData.concept }));
-    toast('✓ GitHub repo created & pushed');
-
-  } catch(e) {
-    ghInfo.className = 'gh-info';
-    ghInfo.textContent = '⚠ GitHub failed: ' + e.message;
-    toast('GitHub error: ' + e.message);
+  } else if (evt.type === 'result') {
+    currentResult = evt;
+    renderResults(evt);
+  } else if (evt.type === 'error') {
+    toast(evt.message || 'Analysis failed. Please try again.');
   }
 }
 
-function buildReadme(d) {
-  return `# ${d.concept}
+function renderResults(r) {
+  document.getElementById('results').classList.add('show');
 
-> Idea Factory snapshot — ${new Date(d.date).toLocaleDateString()}
+  // Score ring
+  const score = r.score || 0;
+  const sColor = score >= 70 ? 'var(--gn)' : score >= 40 ? 'var(--or)' : 'var(--rd)';
+  const arc = document.getElementById('scoreArc');
+  const circ = 2 * Math.PI * 70;
+  arc.style.stroke = sColor;
+  arc.setAttribute('stroke-dasharray', circ);
+  setTimeout(() => { arc.style.strokeDashoffset = circ - (circ * score / 100); }, 100);
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('scoreNum').style.color = sColor;
 
-## Decision: ${d.final_decision}
+  // Verdict
+  const verdict = (r.verdict || 'MAYBE').toUpperCase();
+  const vb = document.getElementById('verdictBadge');
+  vb.textContent = verdict === 'BUILD' ? 'BUILD IT' : verdict === 'SKIP' ? 'SKIP' : 'MAYBE';
+  vb.className = 'verdict-badge ' + (verdict === 'BUILD' ? 'build' : verdict === 'SKIP' ? 'skip' : 'maybe');
+  document.getElementById('verdictConcept').textContent = r.concept || '';
+  document.getElementById('verdictSummary').textContent = r.summary || '';
 
-## Product
-${d.concept}
-
-## Target Buyer
-${d.target_user}
-
-## Core Pain
-${d.core_pain}
-
-## Value Promise
-${d.value_promise}
-
-## Gates
-| Gate | Result | Reason |
-|------|--------|--------|
-| Buyers (Gate 1) | ${d.g1} | ${d.g1r} |
-| Revenue Speed (Gate 2) | ${d.g2} | ${d.g2r} |
-| Build Time (Gate 3) | ${d.g3} | ${d.g3r} |
-
-## Pre-Sell
-
-### Reddit Post
-${d.reddit}
-
-### X Post
-${d.x_post}
-
-### Offer
-${d.offer}
-
-### Price
-${d.price}
-
-### CTA
-${d.cta}
-
----
-*Generated by Idea Factory v2*
-`;
-}
-
-function loadGhStatus() {
-  const last = localStorage.getItem('if_last_repo');
-  if (last) {
-    const r = JSON.parse(last);
-    // just informational on load, not critical
+  // Mode remix banner
+  let remixEl = document.getElementById('modeRemixBanner');
+  if (!remixEl) {
+    remixEl = document.createElement('div');
+    remixEl.id = 'modeRemixBanner';
+    remixEl.style.cssText = 'margin:-8px 0 12px;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.5;display:none;';
+    document.getElementById('verdictSummary').after(remixEl);
   }
-}
-
-// ══════════════════════════════════════════════════
-// UI HELPERS
-// ══════════════════════════════════════════════════
-function showChips(a) {
-  set('v-concept', a.concept); set('v-user', a.target_user);
-  set('v-pain', a.core_pain); set('v-value', a.value_promise);
-  ['chip-concept','chip-user','chip-pain','chip-value'].forEach(id => document.getElementById(id).className = 'chip show');
-}
-
-function showGates(g) {
-  renderGate('gate1','g1v','g1r', g.gate_1, g.gate_1_reason);
-  renderGate('gate2','g2v','g2r', g.gate_2, g.gate_2_reason);
-  const g3class = (g.gate_1==='PASS' && g.gate_2==='PASS' && g.gate_3==='FAIL') ? 'warn' : (g.gate_3==='PASS'?'pass':'fail');
-  const g3label = g3class === 'warn' ? 'TEST' : (g.gate_3==='PASS'?'PASS':'FAIL');
-  const el = document.getElementById('gate3');
-  el.className = 'gate show ' + g3class;
-  set('g3v', g3label); set('g3r', g.gate_3_reason);
-}
-
-function renderGate(cardId, vId, rId, val, reason) {
-  const el = document.getElementById(cardId);
-  el.className = 'gate show ' + (val==='PASS'?'pass':'fail');
-  set(vId, val==='PASS'?'PASS':'FAIL');
-  set(rId, reason||'');
-}
-
-function calcDecision(g1, g2, g3) {
-  if (g1==='FAIL' || g2==='FAIL') return 'KILL';
-  if (g3==='FAIL') return 'TEST FIRST';
-  return 'BUILD NOW';
-}
-
-function showDecision(dec, reason) {
-  const b = document.getElementById('decisionBlock');
-  b.className = 'decision-block show ' + (dec==='BUILD NOW'?'build':dec==='TEST FIRST'?'test':'kill');
-  set('decV', dec);
-  set('decR', reason);
-}
-
-function showPresell(p) {
-  set('ps-reddit', p.reddit||'—');
-  set('ps-x', p.x_post||'—');
-  set('ps-offer', p.offer_line||'—');
-  set('ps-price', p.price||'—');
-  set('ps-cta', p.cta||'—');
-  const xlen = (p.x_post||'').length;
-  const cc = document.getElementById('x-chars');
-  cc.textContent = xlen + ' / 280';
-  cc.className = 'char-count' + (xlen>280?' over':'');
-}
-
-function set(id, val) { const e = document.getElementById(id); if(e) e.textContent = val; }
-function unlock(id) { document.getElementById(id).classList.remove('locked'); }
-function scrollTo(id) { setTimeout(()=>document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'}), 100); }
-
-function setLoading(on) {
-  document.getElementById('analyzeBtn').disabled = on;
-  document.getElementById('progressWrap').className = 'progress-wrap' + (on?' show':'');
-}
-
-function setStep(n, label) {
-  for(let i=1;i<=5;i++){
-    const el = document.getElementById('ps'+i);
-    if(i < n) el.className = 'prog-step done';
-    else if(i===n) el.className = 'prog-step active';
-    else el.className = 'prog-step';
+  if (r.mode && r.mode !== 'validate' && r.original_idea) {
+    const mColor = r.mode === 'trendy' ? 'var(--or)' : '#c084fc';
+    const mLabel = r.mode === 'trendy' ? '&#128640; Trendy Remix' : '&#129412; Wild Twist';
+    remixEl.style.display = 'block';
+    remixEl.style.border = '1px solid ' + (r.mode === 'trendy' ? 'var(--or-bd)' : 'rgba(192,132,252,0.3)');
+    remixEl.style.background = r.mode === 'trendy' ? 'var(--or-dim)' : 'rgba(192,132,252,0.08)';
+    remixEl.innerHTML = `<span style="color:${mColor};font-weight:700">${mLabel}</span><br>`
+      + `<span style="color:var(--mt)">Your idea:</span> ${esc(r.original_idea)}<br>`
+      + `<span style="color:${mColor}">Remixed:</span> ${esc(r.idea)}`;
+  } else {
+    remixEl.style.display = 'none';
   }
-  set('progLabel', label);
-}
 
-// ══════════════════════════════════════════════════
-// TABS
-// ══════════════════════════════════════════════════
-function switchTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-'+name).classList.add('active');
-}
+  // AI Sources
+  const srcs = (r.ai_sources || []).map(s => s.toUpperCase()).join(' + ');
+  document.getElementById('aiSources').textContent = srcs ? 'Powered by: ' + srcs : '';
 
-// ══════════════════════════════════════════════════
-// READINESS
-// ══════════════════════════════════════════════════
-function toggleCheck(el) {
-  el.classList.toggle('on');
-  el.querySelector('.check-box').textContent = el.classList.contains('on') ? '✓' : '';
-  const all = document.querySelectorAll('.check-row');
-  const done = [...all].filter(c=>c.classList.contains('on')).length;
-  const r = document.getElementById('readyResult');
-  if(done===0){r.className='ready-result';return;}
-  if(done===all.length){r.className='ready-result yes';r.textContent='✓ Ready — post it now';}
-  else{r.className='ready-result no';r.textContent=(all.length-done)+' check(s) not ready — fix before posting';}
-}
+  // 4 Scores
+  const scores = r.scores || {};
+  const scoreNames = { pain: 'Pain Level', market: 'Market Size', execution: 'Ease of Building', timing: 'Timing' };
+  document.getElementById('scoresGrid').innerHTML = Object.entries(scoreNames).map(([k, label]) => {
+    const v = scores[k] || 0;
+    const c = v >= 70 ? 'var(--gn)' : v >= 40 ? 'var(--or)' : 'var(--rd)';
+    return `<div><div class="score-lbl"><span>${esc(label)}</span><span style="color:${c};font-weight:600">${v}/100</span></div><div class="score-bar"><div class="score-bar-fill" style="width:${v}%;background:${c}"></div></div></div>`;
+  }).join('');
 
-// ══════════════════════════════════════════════════
-// SIGNAL TRACKER
-// ══════════════════════════════════════════════════
-function startCountdown() {
-  if(cdInterval) clearInterval(cdInterval);
-  idea.countdown_start = Date.now();
-  localStorage.setItem('if_cd', idea.countdown_start);
-  document.getElementById('cdWrap').className = 'countdown show';
-  tick(); cdInterval = setInterval(tick, 1000);
-  toast('48h window started ▶');
-}
+  // Gates
+  const gates = r.gates || {};
+  const gateNames = { build_fast: 'Can you build it fast?', will_pay: 'Will people pay?', urgent_pain: 'Is the pain urgent?' };
+  document.getElementById('gatesGrid').innerHTML = Object.entries(gateNames).map(([k, q]) => {
+    const g = gates[k] || {};
+    const yes = (g.answer || '').toUpperCase().startsWith('YES');
+    return `<div class="gate ${yes ? 'pass' : 'fail'}"><div class="gate-q">${esc(q)}</div><div class="gate-v">${yes ? 'YES' : 'NO'}</div><div class="gate-r">${esc(g.reasoning || '')}</div></div>`;
+  }).join('');
 
-function tick() {
-  const start = parseInt(localStorage.getItem('if_cd')||'0');
-  if(!start) return;
-  const rem = 48*3600000 - (Date.now()-start);
-  const wrap = document.getElementById('cdWrap');
-  if(rem<=0){
-    clearInterval(cdInterval);
-    wrap.className='countdown show expired';
-    set('cdTime','EXPIRED');
-    evalSig();
-    return;
+  // About
+  const about = [['Who Needs This', r.who_needs_this || r.target_user], ['Biggest Problem', r.core_pain], ['What They Get', r.value_promise], ['Why Now', r.why_now]];
+  document.getElementById('aboutGrid').innerHTML = about.map(([l, v]) =>
+    `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px">${esc(l)}</div><div style="font-size:13px;line-height:1.55">${esc(v || '')}</div></div>`
+  ).join('');
+
+  // Timing & Moat
+  const timing = r.timing_analysis || {};
+  const moat = r.moat_analysis || {};
+  const readyC = timing.readiness === 'NOW' ? 'var(--gn)' : 'var(--or)';
+  const moatC = moat.defensibility === 'HIGH' ? 'var(--gn)' : moat.defensibility === 'MEDIUM' ? 'var(--or)' : 'var(--rd)';
+  document.getElementById('timingMoatGrid').innerHTML = `
+    <div class="info-card"><div class="info-card-title">When To Launch</div><div class="info-val" style="color:${readyC}">${esc(timing.readiness || 'NOW')}</div><div class="info-sub">${esc(timing.reasoning || '')}</div>${timing.trigger_event ? `<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Trigger: ${esc(timing.trigger_event)}</div>` : ''}</div>
+    <div class="info-card"><div class="info-card-title">How Easy To Copy</div><div class="info-val" style="color:${moatC}">${esc(moat.defensibility || 'LOW')}</div><div class="info-sub">${esc(moat.reasoning || '')}</div>${moat.moat_type && moat.moat_type !== 'None' ? `<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Moat: ${esc(moat.moat_type)} · ~${moat.copy_time_days || '?'} days to copy</div>` : ''}</div>`;
+
+  // Regions
+  const regions = r.regional_scores || [];
+  const regionBody = document.getElementById('regionBody');
+  if (regions.length) {
+    regionBody.innerHTML = regions.map(reg => {
+      const d = reg.demand || 0;
+      const c = d >= 70 ? 'var(--gn)' : d >= 40 ? 'var(--or)' : 'var(--rd)';
+      return `<div class="region-row"><div class="region-name">${esc(reg.region)}</div><div class="region-bar"><div class="region-bar-fill" style="width:${d}%;background:${c}"><span class="region-bar-num">${d}</span></div></div></div>${reg.reasoning ? `<div class="region-why">${esc(reg.reasoning)}</div>` : ''}`;
+    }).join('');
+  } else {
+    regionBody.innerHTML = '<div style="color:var(--mt);font-size:12px;text-align:center">No regional data</div>';
   }
-  const h=Math.floor(rem/3600000), m=Math.floor((rem%3600000)/60000), s=Math.floor((rem%60000)/1000);
-  set('cdTime', `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+
+  // Competitors
+  const research = r.research || {};
+  const comps = research.competitors || [];
+  const compCard = document.getElementById('compCard');
+  if (comps.length) {
+    compCard.style.display = '';
+    document.getElementById('compBody').innerHTML = `<table class="comp-table"><tr><th>Name</th><th>Price</th><th>Weakness</th></tr>${comps.map(c => `<tr><td>${esc(c.name || '?')}</td><td>${esc(c.price || '?')}</td><td>${esc(c.weakness || '?')}</td></tr>`).join('')}</table>${research.market_size ? `<div style="margin-top:14px;font-size:12px;color:var(--dm)"><strong style="color:var(--ac)">Market size:</strong> ${esc(research.market_size)}</div>` : ''}${(research.key_trends || []).length ? `<div style="margin-top:8px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Key Trends</div><div class="tag-list">${research.key_trends.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>` : ''}`;
+  } else { compCard.style.display = 'none'; }
+
+  // Social Buzz
+  const buzz = r.social_buzz || {};
+  const buzzCard = document.getElementById('buzzCard');
+  if (buzz.buzz_level) {
+    buzzCard.style.display = '';
+    const buzzC = buzz.buzz_level === 'HIGH' ? 'var(--gn)' : buzz.buzz_level === 'MEDIUM' ? 'var(--or)' : 'var(--rd)';
+    let html = `<div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap"><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Buzz</div><div class="info-val" style="color:${buzzC}">${esc(buzz.buzz_level)}</div></div><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Trend</div><div class="info-val" style="color:${buzz.trend_direction === 'RISING' ? 'var(--gn)' : 'var(--or)'}">${esc(buzz.trend_direction || '?')}</div></div><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Sentiment</div><div class="info-val" style="font-size:14px">${esc(buzz.sentiment || '?')}</div></div></div>`;
+    if (buzz.summary) html += `<div style="font-size:13px;color:var(--dm);margin-bottom:14px;line-height:1.55">${esc(buzz.summary)}</div>`;
+    (buzz.sample_posts || []).forEach(p => { html += `<div class="buzz-item"><div class="buzz-text">"${esc(p.text)}"</div><div class="buzz-meta">Engagement: ${esc(p.engagement)}</div></div>`; });
+    const pains = buzz.pain_signals || [];
+    if (pains.length) html += `<div style="margin-top:10px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Pain Signals</div><div class="tag-list">${pains.map(p => `<span class="tag risk">${esc(p)}</span>`).join('')}</div></div>`;
+    document.getElementById('buzzBody').innerHTML = html;
+  } else { buzzCard.style.display = 'none'; }
+
+  // Business Model
+  const biz = r.business_model || {};
+  const bizCard = document.getElementById('bizCard');
+  if (biz.business_type) {
+    bizCard.style.display = '';
+    let html = `<div class="biz-grid"><div class="biz-card"><div class="biz-val">${esc(biz.suggested_price || '?')}</div><div class="biz-lbl">Price</div></div><div class="biz-card"><div class="biz-val">${esc(biz.year1_potential || '?')}</div><div class="biz-lbl">Year 1 Potential</div></div><div class="biz-card"><div class="biz-val">Month ${biz.breakeven_month || '?'}</div><div class="biz-lbl">Break Even</div></div></div>`;
+    html += `<div style="margin-top:14px"><div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Type:</strong> ${esc(biz.business_type)}</div><div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Strategy:</strong> ${esc(biz.pricing_strategy || '')}</div>`;
+    if (biz.monetization_tips) html += `<div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Tip:</strong> ${esc(biz.monetization_tips)}</div>`;
+    if (biz.funding_needed) html += `<div style="font-size:13px;color:var(--dm)"><strong style="color:var(--tx)">Funding:</strong> ${esc(biz.funding_needed)}</div>`;
+    html += '</div>';
+    const advs = biz.key_advantages || []; const risks = biz.key_risks || [];
+    if (advs.length || risks.length) {
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">';
+      if (advs.length) html += `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Advantages</div><div class="tag-list">${advs.map(a => `<span class="tag advantage">${esc(a)}</span>`).join('')}</div></div>`;
+      if (risks.length) html += `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Risks</div><div class="tag-list">${risks.map(r => `<span class="tag risk">${esc(r)}</span>`).join('')}</div></div>`;
+      html += '</div>';
+    }
+    document.getElementById('bizBody').innerHTML = html;
+  } else { bizCard.style.display = 'none'; }
+
+  // Revenue Chart
+  const rev = biz.revenue_projections;
+  const revCard = document.getElementById('revCard');
+  if (rev) {
+    revCard.style.display = '';
+    const months = [{ l: 'M1', d: rev.month_1 }, { l: 'M3', d: rev.month_3 }, { l: 'M6', d: rev.month_6 }, { l: 'M12', d: rev.month_12 }].filter(m => m.d);
+    const maxR = Math.max(...months.map(m => m.d.revenue || 0), 1);
+    document.getElementById('revBody').innerHTML = `<div class="rev-chart">${months.map(m => {
+      const rH = Math.max((m.d.revenue / maxR) * 100, 5);
+      const cH = Math.max(((m.d.costs || 0) / maxR) * 100, 3);
+      return `<div class="rev-bar-wrap"><div class="rev-val">$${(m.d.revenue || 0).toLocaleString()}</div><div class="rev-bar revenue" style="height:${rH}%"></div><div class="rev-bar costs" style="height:${cH}%"></div><div class="rev-label">${m.l}</div></div>`;
+    }).join('')}</div><div style="display:flex;gap:16px;justify-content:center;margin-top:10px"><span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--ac);border-radius:2px;margin-right:4px"></span>Revenue</span><span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--rd);opacity:0.6;border-radius:2px;margin-right:4px"></span>Costs</span></div>`;
+  } else { revCard.style.display = 'none'; }
+
+  // Next Steps
+  const steps = r.next_steps || [];
+  document.getElementById('stepsList').innerHTML = steps.map((s, i) =>
+    `<div class="step-item"><div class="step-num">${i + 1}</div><div class="step-text">${esc(s)}</div></div>`
+  ).join('') || '<div style="color:var(--mt);font-size:12px">No steps generated</div>';
+
+  // Content
+  const content = r.content || {};
+  const pieces = [['Tweet', content.tweet], ['Reddit Post', content.reddit], ['One-Line Pitch', content.pitch], ['Offer', content.offer], ['Price Point', content.price], ['Call to Action', content.cta]].filter(([, v]) => v);
+  document.getElementById('contentGrid').innerHTML = pieces.map(([l, v]) =>
+    `<div class="content-box"><button class="copy-btn" onclick="copyText(this,'${escAttr(v)}')">Copy</button><div class="content-lbl">${esc(l)}</div><div class="content-val">${esc(v)}</div></div>`
+  ).join('');
+
+  // Actions
+  const id = r.id || '';
+  document.getElementById('actionsBar').innerHTML = `
+    <a class="act-btn primary" href="/api/idea/${encodeURIComponent(id)}/pdf" target="_blank">Download PDF</a>
+    <button class="act-btn outline" onclick="copyText(this,'${escAttr(r.share_url || '')}')">Copy Share Link</button>
+    <button class="act-btn outline" onclick="getBuildPlan('${escAttr(id)}')">Build Plan</button>
+    <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>`;
+
+  loadHistory();
+  document.getElementById('scoreHero').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function logSig(type) {
-  if(type==='pay') { idea.pay++; set('sn-pay', idea.pay); document.querySelector('.sig-card.pay').classList.add('hit'); }
-  if(type==='rep') { idea.rep++; set('sn-rep', idea.rep); document.querySelector('.sig-card.rep').classList.add('hit'); }
-  if(type==='clk') { idea.clk++; set('sn-clk', idea.clk); document.querySelector('.sig-card.clk').classList.add('hit'); }
-  evalSig();
-  autoSave();
+// ── Helpers ──
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
 }
 
-function evalSig() {
-  const v = document.getElementById('sigVerdict');
-  if(idea.pay>=1){ v.className='sig-verdict show build'; v.textContent='💰 PAYMENT — BUILD NOW IMMEDIATELY'; }
-  else if(idea.rep>=5){ v.className='sig-verdict show test'; v.textContent='🔥 5+ STRONG REPLIES — REFINE & REPOST'; }
-  else if(idea.clk>=10 && idea.pay===0 && idea.rep<3){ v.className='sig-verdict show kill'; v.textContent='👆 CLICKS ONLY (10+), NO INTENT — KILL'; }
-  else { v.className='sig-verdict'; }
+function escAttr(s) {
+  return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
 }
 
-function resetSigUI() {
-  ['sn-pay','sn-rep','sn-clk'].forEach(id=>set(id,'0'));
-  ['pay','rep','clk'].forEach(c=>document.querySelector('.sig-card.'+c)?.classList.remove('hit'));
-  document.getElementById('sigVerdict').className='sig-verdict';
-  document.getElementById('cdWrap').className='countdown';
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text.replace(/\\n/g, '\n'));
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  btn.style.borderColor = 'var(--gn)';
+  btn.style.color = 'var(--gn)';
+  setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
 }
 
-// ══════════════════════════════════════════════════
-// COPY
-// ══════════════════════════════════════════════════
-function doCopy(elId, btn) {
-  const text = document.getElementById(elId).textContent;
-  if(!text||text==='—'){toast('Nothing to copy');return;}
-  navigator.clipboard.writeText(text).then(()=>{
-    const orig = btn.textContent;
-    btn.textContent='✓ Copied'; btn.classList.add('done');
-    setTimeout(()=>{btn.textContent=orig;btn.classList.remove('done');},2000);
-    toast('Copied to clipboard');
-  });
-}
-
-// ══════════════════════════════════════════════════
-// STATS
-// ══════════════════════════════════════════════════
-function loadStats() {
-  const s = localStorage.getItem('if_stats');
-  if(s) stats = JSON.parse(s);
-  renderStats();
-}
-function bumpStats(type) {
-  // Week reset check
-  const now = new Date();
-  const ws = new Date(now); ws.setDate(now.getDate()-now.getDay());
-  if(!stats.week_start || new Date(stats.week_start) < ws){ stats.week=0; stats.week_start=ws.toISOString(); }
-  if(type==='validated'){stats.validated++;stats.week++;}
-  if(type==='built'){stats.built++;stats.validated++;stats.week++;}
-  if(type==='killed'){stats.killed++;stats.validated++;stats.week++;}
-  localStorage.setItem('if_stats',JSON.stringify(stats));
-  renderStats();
-}
-function renderStats() {
-  set('sValidated',stats.validated||0); set('sBuilt',stats.built||0);
-  set('sKilled',stats.killed||0); set('sWeek',stats.week||0);
-}
-
-// ══════════════════════════════════════════════════
-// GRAVEYARD
-// ══════════════════════════════════════════════════
-function loadGraveyard() {
-  const g = JSON.parse(localStorage.getItem('if_grave')||'[]');
-  renderGrave(g);
-}
-function archiveGrave(d) {
-  const g = JSON.parse(localStorage.getItem('if_grave')||'[]');
-  g.unshift({ idea: d.raw_idea.substring(0,70), decision: d.final_decision, date: new Date(d.date).toLocaleDateString() });
-  if(g.length>30) g.pop();
-  localStorage.setItem('if_grave',JSON.stringify(g));
-  renderGrave(g);
-}
-function renderGrave(g) {
-  const el = document.getElementById('graveList');
-  if(!g.length){ el.innerHTML='<div class="grave-empty">No ideas processed yet.</div>'; return; }
-  el.innerHTML = g.map(i=>`
-    <div class="grave-item">
-      <div class="grave-idea">${i.idea}${i.idea.length===70?'...':''}</div>
-      <div class="grave-date">${i.date}</div>
-      <div class="grave-tag ${i.decision==='KILL'?'kill':i.decision==='TEST FIRST'?'test':'build'}">${i.decision||'—'}</div>
-    </div>`).join('');
-}
-
-// ══════════════════════════════════════════════════
-// SAVE / EXPORT / RESET
-// ══════════════════════════════════════════════════
-function autoSave() {
-  const ideas = JSON.parse(localStorage.getItem('if_ideas')||'[]');
-  const idx = ideas.findIndex(i=>i.id===idea.id);
-  if(idx>-1) ideas[idx]={...idea}; else ideas.unshift({...idea});
-  if(ideas.length>50) ideas.pop();
-  localStorage.setItem('if_ideas',JSON.stringify(ideas));
-}
-function saveIdea() {
-  if(!idea.id){toast('Run analysis first');return;}
-  autoSave(); toast('✓ Saved');
-}
-function exportJSON() {
-  const ideas = JSON.parse(localStorage.getItem('if_ideas')||'[]');
-  if(!ideas.length){toast('Nothing to export');return;}
-  const blob = new Blob([JSON.stringify(ideas,null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'idea-factory-'+new Date().toISOString().split('T')[0]+'.json';
-  a.click();
-  toast('✓ Exported '+ideas.length+' ideas');
-}
-function resetSession() {
-  if(!confirm('Reset current session? Saved ideas stay.')) return;
-  if(cdInterval) clearInterval(cdInterval);
-  localStorage.removeItem('if_cd');
-
-  idea = { id:'',date:'',pain_who:'',pain_quotes:'',pain_freq:'',pain_buyers:'',
-    raw_idea:'',concept:'',target_user:'',core_pain:'',value_promise:'',
-    g1:'',g1r:'',g2:'',g2r:'',g3:'',g3r:'',
-    reddit:'',x_post:'',offer:'',price:'',cta:'',
-    pay:0,rep:0,clk:0,countdown_start:null,final_decision:'',repo_url:'' };
-
-  ['painWho','painQuotes','painFreq','painBuyers','rawIdea','scrapeUrl'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-
-  ['sec-analysis','sec-gates','sec-presell','sec-signals','sec-github'].forEach(id=>{
-    const el=document.getElementById(id);
-    el.className='section locked';
-  });
-
-  document.getElementById('decisionBlock').className='decision-block';
-  document.getElementById('killOverlay').className='kill-overlay';
-  ['gate1','gate2','gate3'].forEach(id=>document.getElementById(id).className='gate');
-  ['chip-concept','chip-user','chip-pain','chip-value'].forEach(id=>document.getElementById(id).className='chip');
-  document.querySelectorAll('.check-row').forEach(c=>{c.classList.remove('on');c.querySelector('.check-box').textContent='';});
-  document.getElementById('readyResult').className='ready-result';
-  document.getElementById('ghStatus').className='github-status';
-  document.getElementById('ghLink').style.display='none';
-  document.getElementById('progLabel').textContent='';
-  document.getElementById('progressWrap').className='progress-wrap';
-  document.getElementById('footerStatus').textContent='No active session';
-  document.getElementById('painWarn').className='word-warn';
-  resetSigUI();
-  checkPainLength();
-  toast('Session reset — new idea ready');
-}
-
-// ══════════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════════
 function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2800);
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function resetOutputUI() {
-  document.getElementById('killOverlay').className='kill-overlay';
-  document.getElementById('decisionBlock').className='decision-block';
-  ['gate1','gate2','gate3'].forEach(id=>document.getElementById(id).className='gate');
-  ['chip-concept','chip-user','chip-pain','chip-value'].forEach(id=>document.getElementById(id).className='chip');
-  ['sec-analysis','sec-gates','sec-presell','sec-signals','sec-github'].forEach(id=>{
-    document.getElementById(id).className='section locked';
-  });
-  document.getElementById('ghStatus').className='github-status';
-  document.getElementById('ghLink').style.display='none';
+function newIdea() {
+  currentResult = null;
+  document.getElementById('ideaInput').value = '';
+  document.getElementById('pipeline').classList.remove('show');
+  document.getElementById('results').classList.remove('show');
+  ['compCard','buzzCard','bizCard','revCard'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('ideaInput').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function loadHistory() {
+  try {
+    const r = await fetch('/api/ideas');
+    const ideas = await r.json();
+    const el = document.getElementById('historyList');
+    if (!ideas.length) { el.innerHTML = '<div style="font-family:var(--mn);font-size:11px;color:var(--mt);text-align:center;padding:14px">No ideas yet. Submit one above!</div>'; return; }
+    el.innerHTML = ideas.slice(0, 10).map(i => {
+      const v = (i.verdict || 'MAYBE').toUpperCase();
+      const vc = v.includes('BUILD') ? 'build' : v.includes('SKIP') || v.includes('KILL') ? 'skip' : 'maybe';
+      const sc = i.score || 0;
+      const scC = sc >= 70 ? 'var(--gn)' : sc >= 40 ? 'var(--or)' : 'var(--rd)';
+      const url = i.share_url || '#';
+      return `<div class="history-item" onclick="window.location.href='${escAttr(url)}'"><div class="history-score" style="color:${scC}">${sc}</div><div class="history-info"><div class="history-concept">${esc(i.concept || 'Untitled')}</div><div class="history-meta">${esc(i.category || 'Other')} · ${i.date ? new Date(i.date).toLocaleDateString() : ''}</div></div><div class="history-verdict ${vc}">${esc(v)}</div></div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function getBuildPlan(ideaId) {
+  toast('Generating build plan...');
+  try {
+    const r = await fetch('/api/idea/' + encodeURIComponent(ideaId) + '/premium-report');
+    const data = await r.json();
+    const w = window.open('', '_blank');
+    w.document.write('<html><head><title>Build Plan</title><style>body{background:#080808;color:#eee;font-family:"JetBrains Mono",monospace;padding:40px;font-size:13px;line-height:1.6}pre{white-space:pre-wrap}h1{color:#c8ff00}</style></head><body><h1>Build Plan</h1><pre>' + esc(JSON.stringify(data, null, 2)) + '</pre></body></html>');
+  } catch(e) { toast('Failed to generate plan'); }
 }
 </script>
 </body>
