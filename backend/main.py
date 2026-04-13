@@ -55,6 +55,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_PRO_MONTHLY = os.getenv("STRIPE_PRICE_PRO_MONTHLY", "")
 STRIPE_PRICE_API_MONTHLY = os.getenv("STRIPE_PRICE_API_MONTHLY", "")
 FREE_TIER_LIMIT = int(os.getenv("FREE_TIER_LIMIT", "3"))
+PRO_PRICE_USD = int(os.getenv("PRO_PRICE_USD", "29"))
 
 # Stripe client (optional)
 try:
@@ -618,6 +619,17 @@ def combine_results(idea_text, analysis, research, sentiment, business,
     }
 
 
+# Allowed origins for CORS (from env or default to local + BASE_URL)
+_CORS_ORIGINS_ENV = os.getenv("CORS_ORIGINS", "")
+_ALLOWED_ORIGINS = (
+    [o.strip() for o in _CORS_ORIGINS_ENV.split(",") if o.strip()]
+    if _CORS_ORIGINS_ENV
+    else [BASE_URL, "http://localhost:3000", "http://localhost:8000",
+          "http://localhost:8001", "https://localhost"]
+)
+# Whether to set Secure flag on cookies (enable in production via env)
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+
 # ═════════════════════════════════════════════════════
 #  APP
 # ═════════════════════════════════════════════════════
@@ -625,7 +637,7 @@ app = FastAPI(title="Idea Factory", version="4.0.0",
               description="Multi-AI idea validation — personal tool")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -702,9 +714,11 @@ async def analyze_idea(data: AnalyzeRequest, request: Request, response: Respons
     db_rate = SessionLocal()
     try:
         sess = _get_or_create_session(request, db_rate)
-        if not sess.is_pro and sess.validations_count >= FREE_TIER_LIMIT:
+        effective_usage = max(0, sess.validations_count - sess.referral_credits)
+        if not sess.is_pro and effective_usage >= FREE_TIER_LIMIT:
             raise HTTPException(429, f"Free tier limit reached ({FREE_TIER_LIMIT} validations). Upgrade to Pro for unlimited access.")
-        response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+        response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
+                            httponly=True, samesite="lax", secure=COOKIE_SECURE)
     finally:
         db_rate.close()
 
@@ -1211,7 +1225,7 @@ async def admin_dashboard(admin: bool = Depends(check_admin), db: Session = Depe
         },
         "revenue": {
             "pro_users": pro_users,
-            "mrr_estimate": pro_users * 29,
+            "mrr_estimate": pro_users * PRO_PRICE_USD,
             "total_upgrades": pro_users,
         },
         "next_actions": [
@@ -1220,6 +1234,29 @@ async def admin_dashboard(admin: bool = Depends(check_admin), db: Session = Depe
             f"Average score is {round(avg)}/100 — {'strong pipeline' if avg >= 60 else 'needs more ideas'}",
         ],
     }
+
+
+@app.post("/api/admin/api-keys")
+async def manage_api_keys(admin: bool = Depends(check_admin),
+                           action: str = Query("list"),
+                           user: str = Query(None),
+                           key: str = Query(None)):
+    """Manage programmatic API keys."""
+    if action == "list":
+        return {"keys": [{"key": k[:8] + "...", "user": v["user"], "is_pro": v["is_pro"]} for k, v in _API_KEYS.items()]}
+    elif action == "create":
+        if not user:
+            raise HTTPException(400, "user parameter required")
+        new_key = "ifak_" + secrets.token_urlsafe(32)
+        _API_KEYS[new_key] = {"user": user, "is_pro": True}
+        return {"key": new_key, "user": user}
+    elif action == "delete":
+        if not key or key not in _API_KEYS:
+            raise HTTPException(404, "Key not found")
+        del _API_KEYS[key]
+        return {"deleted": True}
+    else:
+        raise HTTPException(400, f"Unknown action: {action}")
 
 
 @app.post("/api/cron/auto-rank")
@@ -1405,8 +1442,10 @@ async def trends(db: Session = Depends(get_db)):
 @app.get("/api/user/status")
 async def user_status(request: Request, response: Response, db: Session = Depends(get_db)):
     sess = _get_or_create_session(request, db)
-    remaining = max(0, FREE_TIER_LIMIT - sess.validations_count) if not sess.is_pro else 999
-    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+    effective_usage = max(0, sess.validations_count - sess.referral_credits)
+    remaining = max(0, FREE_TIER_LIMIT - effective_usage) if not sess.is_pro else 999
+    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
+                        httponly=True, samesite="lax", secure=COOKIE_SECURE)
     return {
         "is_pro": sess.is_pro,
         "validations_this_month": sess.validations_count,
@@ -1426,7 +1465,6 @@ async def apply_referral(data: ReferralInput, request: Request, response: Respon
                           db: Session = Depends(get_db)):
     if not data.code:
         raise HTTPException(400, "Referral code required")
-    # Find the referrer
     referrer = db.query(UserSessionDB).filter(
         UserSessionDB.referral_code == data.code.upper()
     ).first()
@@ -1437,12 +1475,12 @@ async def apply_referral(data: ReferralInput, request: Request, response: Respon
         raise HTTPException(400, "You have already applied a referral code")
     if sess.session_id == referrer.session_id:
         raise HTTPException(400, "You cannot use your own referral code")
-    # Grant credits to both
     sess.referred_by = data.code.upper()
     sess.referral_credits += 1
     referrer.referral_credits += 1
     db.commit()
-    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
+                        httponly=True, samesite="lax", secure=COOKIE_SECURE)
     return {"status": "applied", "credits_granted": 1, "referrer_credited": True}
 
 
@@ -1581,8 +1619,8 @@ async def daily_digest(admin: bool = Depends(check_admin), db: Session = Depends
             "pro_users": pro_users,
         },
         "builds": builds,
-        "mrr": pro_users * 29,
-        "summary": f"{ideas_today} ideas validated today. {builds} marked BUILD. {pro_users} pro users (${pro_users * 29}/mo MRR).",
+        "mrr": pro_users * PRO_PRICE_USD,
+        "summary": f"{ideas_today} ideas validated today. {builds} marked BUILD. {pro_users} pro users (${pro_users * PRO_PRICE_USD}/mo MRR).",
     }
 
 
