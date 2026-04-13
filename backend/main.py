@@ -7,7 +7,7 @@ Pipeline:
   Step 2 (parallel): Claude (deep analysis) + GPT-4o (business model)
   Step 3: Combine → Score → Save
 
-STACK: FastAPI + SQLite + Anthropic + OpenAI + Perplexity + Grok + Stripe
+STACK: FastAPI + SQLite + Anthropic + OpenAI + Perplexity + Grok
 """
 
 import os
@@ -24,9 +24,9 @@ from typing import Optional, List
 import anthropic
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Query, Request, Header, Response, Cookie
+from fastapi import FastAPI, HTTPException, Depends, Query, Request, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, Text, func, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -48,30 +48,6 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
-
-# Stripe / Monetization
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_PRO_MONTHLY = os.getenv("STRIPE_PRICE_PRO_MONTHLY", "")
-STRIPE_PRICE_API_MONTHLY = os.getenv("STRIPE_PRICE_API_MONTHLY", "")
-FREE_TIER_LIMIT = int(os.getenv("FREE_TIER_LIMIT", "3"))
-PRO_PRICE_USD = int(os.getenv("PRO_PRICE_USD", "29"))
-
-# Stripe client (optional)
-try:
-    import stripe as _stripe_module
-    _stripe_key = STRIPE_SECRET_KEY
-    if _stripe_key and not _stripe_key.startswith("sk_test_placeholder") and len(_stripe_key) > 20:
-        _stripe_module.api_key = _stripe_key
-        STRIPE_ENABLED = True
-    else:
-        STRIPE_ENABLED = False
-except ImportError:
-    _stripe_module = None
-    STRIPE_ENABLED = False
-
-# API access keys registry (populated via admin)
-_API_KEYS: dict = {}  # key → {"user": str, "is_pro": bool}
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
@@ -155,17 +131,13 @@ class EmailCaptureDB(Base):
 
 
 class UserSessionDB(Base):
+    """Simple session analytics — tracks how many ideas validated per session."""
     __tablename__ = "user_sessions"
     session_id = Column(String, primary_key=True, index=True)
     ip = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_seen = Column(DateTime, default=datetime.utcnow)
     validations_count = Column(Integer, default=0)
-    is_pro = Column(Boolean, default=False)
-    stripe_customer_id = Column(String, nullable=True)
-    referral_code = Column(String, unique=True, nullable=True, index=True)
-    referred_by = Column(String, nullable=True)
-    referral_credits = Column(Integer, default=0)
 
 
 Base.metadata.create_all(bind=engine)
@@ -194,17 +166,10 @@ class IdeaInput(BaseModel):
     mode: str = "validate"  # validate, trendy, wild
 
 class AnalyzeRequest(BaseModel):
-    idea: str  # Required (use raw_idea as alias handled below)
+    idea: str
     mode: str = "validate"
     email: Optional[str] = None
     pain: Optional[dict] = None
-
-class ReferralInput(BaseModel):
-    code: str
-
-class CheckoutInput(BaseModel):
-    product_type: str  # pro_monthly, single_report, api_monthly
-    idea_id: Optional[str] = None
 
 class SignalUpdate(BaseModel):
     idea_id: str
@@ -233,7 +198,7 @@ def check_admin(x_admin_secret: str = Header(None)):
 
 # ─── SESSION HELPERS ──────────────────────────────────
 def _get_or_create_session(request: Request, db: Session) -> UserSessionDB:
-    """Get or create a user session from cookie. Returns (session, is_new)."""
+    """Get or create a user session from cookie (for analytics only)."""
     sid = request.cookies.get("session_id")
     if sid:
         sess = db.query(UserSessionDB).filter(UserSessionDB.session_id == sid).first()
@@ -244,20 +209,12 @@ def _get_or_create_session(request: Request, db: Session) -> UserSessionDB:
     # Create new session
     new_sid = secrets.token_urlsafe(24)
     ip = (request.client.host if request.client else "unknown")
-    ref_code = secrets.token_urlsafe(6).upper()
-    sess = UserSessionDB(session_id=new_sid, ip=ip, referral_code=ref_code)
+    sess = UserSessionDB(session_id=new_sid, ip=ip)
     db.add(sess)
     db.commit()
     db.refresh(sess)
     return sess
 
-def _check_api_key(x_api_key: str = Header(None)):
-    """Validate API key for programmatic access."""
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="API key required")
-    if x_api_key not in _API_KEYS:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    return _API_KEYS[x_api_key]
 
 
 # ─── SSE HELPER ───────────────────────────────────────
@@ -710,13 +667,10 @@ async def analyze_idea(data: AnalyzeRequest, request: Request, response: Respons
     if not idea_text:
         raise HTTPException(400, "Tell me your idea — even a rough sentence works")
 
-    # Rate limit: track per session
+    # Track session analytics (no rate limiting — personal tool)
     db_rate = SessionLocal()
     try:
         sess = _get_or_create_session(request, db_rate)
-        effective_usage = max(0, sess.validations_count - sess.referral_credits)
-        if not sess.is_pro and effective_usage >= FREE_TIER_LIMIT:
-            raise HTTPException(429, f"Free tier limit reached ({FREE_TIER_LIMIT} validations). Upgrade to Pro for unlimited access.")
         response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
                             httponly=True, samesite="lax", secure=COOKIE_SECURE)
     finally:
@@ -896,7 +850,7 @@ async def get_stats(db: Session = Depends(get_db)):
     top = db.query(func.max(IdeaDB.score)).scalar() or 0
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today_start).scalar() or 0
-    total_upgrades = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    builds_total = db.query(func.count(IdeaDB.id)).filter(IdeaDB.final_decision == "BUILD").scalar() or 0
     return {
         "validated": s.validated if s else 0,
         "built": s.built if s else 0,
@@ -906,7 +860,7 @@ async def get_stats(db: Session = Depends(get_db)):
         "avg_score": round(avg),
         "top_score": top,
         "ideas_today": ideas_today,
-        "total_upgrades": total_upgrades,
+        "total_upgrades": builds_total,  # ideas marked BUILD = your "winners"
     }
 
 
@@ -1206,7 +1160,9 @@ async def admin_dashboard(admin: bool = Depends(check_admin), db: Session = Depe
     avg = db.query(func.avg(IdeaDB.score)).scalar() or 0
     builds = db.query(func.count(IdeaDB.id)).filter(IdeaDB.final_decision.ilike("%BUILD%")).scalar() or 0
     top = db.query(IdeaDB).order_by(IdeaDB.score.desc()).limit(5).all()
-    pro_users = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    sessions_today = db.query(func.count(UserSessionDB.session_id)).filter(
+        UserSessionDB.last_seen >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    ).scalar() or 0
     emails = db.query(func.count(EmailCaptureDB.id)).scalar() or 0
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today_start).scalar() or 0
@@ -1219,44 +1175,21 @@ async def admin_dashboard(admin: bool = Depends(check_admin), db: Session = Depe
             "total_ideas": total,
             "avg_score": round(avg),
             "builds": builds,
-            "pro_users": pro_users,
+            "sessions_today": sessions_today,
             "emails_captured": emails,
             "ideas_today": ideas_today,
         },
         "revenue": {
-            "pro_users": pro_users,
-            "mrr_estimate": pro_users * PRO_PRICE_USD,
-            "total_upgrades": pro_users,
+            "pro_users": 0,
+            "mrr_estimate": 0,
+            "total_upgrades": builds,
         },
         "next_actions": [
-            f"You have {emails} emails captured — consider sending a newsletter",
-            f"{builds} ideas marked BUILD — follow up with users",
-            f"Average score is {round(avg)}/100 — {'strong pipeline' if avg >= 60 else 'needs more ideas'}",
+            f"{ideas_today} ideas validated today — {'great momentum!' if ideas_today > 0 else 'get started!'}",
+            f"{builds} ideas marked BUILD — these are your best opportunities",
+            f"Average score is {round(avg)}/100 — {'strong pipeline' if avg >= 60 else 'keep exploring more ideas'}",
         ],
     }
-
-
-@app.post("/api/admin/api-keys")
-async def manage_api_keys(admin: bool = Depends(check_admin),
-                           action: str = Query("list"),
-                           user: str = Query(None),
-                           key: str = Query(None)):
-    """Manage programmatic API keys."""
-    if action == "list":
-        return {"keys": [{"key": k[:8] + "...", "user": v["user"], "is_pro": v["is_pro"]} for k, v in _API_KEYS.items()]}
-    elif action == "create":
-        if not user:
-            raise HTTPException(400, "user parameter required")
-        new_key = "ifak_" + secrets.token_urlsafe(32)
-        _API_KEYS[new_key] = {"user": user, "is_pro": True}
-        return {"key": new_key, "user": user}
-    elif action == "delete":
-        if not key or key not in _API_KEYS:
-            raise HTTPException(404, "Key not found")
-        del _API_KEYS[key]
-        return {"deleted": True}
-    else:
-        raise HTTPException(400, f"Unknown action: {action}")
 
 
 @app.post("/api/cron/auto-rank")
@@ -1437,160 +1370,23 @@ async def trends(db: Session = Depends(get_db)):
 
 
 # ═════════════════════════════════════════════════════
-#  USER SESSION & STATUS
+#  USER SESSION STATUS (analytics only — no paywalls)
 # ═════════════════════════════════════════════════════
 @app.get("/api/user/status")
 async def user_status(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Return session analytics. This is a personal tool — no rate limits."""
     sess = _get_or_create_session(request, db)
-    effective_usage = max(0, sess.validations_count - sess.referral_credits)
-    remaining = max(0, FREE_TIER_LIMIT - effective_usage) if not sess.is_pro else 999
     response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
                         httponly=True, samesite="lax", secure=COOKIE_SECURE)
     return {
-        "is_pro": sess.is_pro,
+        "is_pro": True,  # Always true — personal tool, no paywalls
         "validations_this_month": sess.validations_count,
-        "validations_limit": FREE_TIER_LIMIT if not sess.is_pro else 999,
-        "validations_remaining": remaining,
-        "referral_code": sess.referral_code,
-        "referral_credits": sess.referral_credits,
+        "validations_limit": 999,
+        "validations_remaining": 999,
+        "referral_code": None,
+        "referral_credits": 0,
         "is_first_session": sess.validations_count == 0,
     }
-
-
-# ═════════════════════════════════════════════════════
-#  REFERRAL SYSTEM
-# ═════════════════════════════════════════════════════
-@app.post("/api/referral/apply")
-async def apply_referral(data: ReferralInput, request: Request, response: Response,
-                          db: Session = Depends(get_db)):
-    if not data.code:
-        raise HTTPException(400, "Referral code required")
-    referrer = db.query(UserSessionDB).filter(
-        UserSessionDB.referral_code == data.code.upper()
-    ).first()
-    if not referrer:
-        raise HTTPException(404, "Referral code not found")
-    sess = _get_or_create_session(request, db)
-    if sess.referred_by:
-        raise HTTPException(400, "You have already applied a referral code")
-    if sess.session_id == referrer.session_id:
-        raise HTTPException(400, "You cannot use your own referral code")
-    sess.referred_by = data.code.upper()
-    sess.referral_credits += 1
-    referrer.referral_credits += 1
-    db.commit()
-    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365,
-                        httponly=True, samesite="lax", secure=COOKIE_SECURE)
-    return {"status": "applied", "credits_granted": 1, "referrer_credited": True}
-
-
-# ═════════════════════════════════════════════════════
-#  STRIPE CHECKOUT
-# ═════════════════════════════════════════════════════
-_PRODUCT_PRICES = {
-    "pro_monthly": {"price": STRIPE_PRICE_PRO_MONTHLY, "amount": 2900, "label": "Pro Monthly"},
-    "single_report": {"price": None, "amount": 900, "label": "Single Premium Report"},
-    "api_monthly": {"price": STRIPE_PRICE_API_MONTHLY, "amount": 4900, "label": "API Access Monthly"},
-}
-
-@app.post("/api/checkout/create-session")
-async def create_checkout_session(data: CheckoutInput, request: Request, db: Session = Depends(get_db)):
-    if not STRIPE_ENABLED or not _stripe_module:
-        raise HTTPException(503, "Payment processing not configured. Contact the admin.")
-    product = _PRODUCT_PRICES.get(data.product_type)
-    if not product:
-        raise HTTPException(400, f"Unknown product type: {data.product_type}")
-    sess = _get_or_create_session(request, db)
-    try:
-        success_url = f"{BASE_URL}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}&type={data.product_type}"
-        cancel_url = f"{BASE_URL}/checkout/cancel"
-        if data.product_type == "single_report":
-            # One-time payment
-            checkout = _stripe_module.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=[{"price_data": {
-                    "currency": "usd",
-                    "product_data": {"name": product["label"]},
-                    "unit_amount": product["amount"],
-                }, "quantity": 1}],
-                mode="payment",
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={"session_id": sess.session_id, "product_type": data.product_type,
-                           "idea_id": data.idea_id or ""},
-            )
-        else:
-            # Subscription
-            if not product["price"]:
-                raise HTTPException(503, f"Price ID for {data.product_type} not configured")
-            checkout = _stripe_module.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=[{"price": product["price"], "quantity": 1}],
-                mode="subscription",
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={"session_id": sess.session_id, "product_type": data.product_type},
-            )
-        return {"url": checkout.url, "session_id": checkout.id}
-    except Exception as e:
-        raise HTTPException(503, f"Payment error: {e}")
-
-
-@app.get("/checkout/success", response_class=HTMLResponse)
-async def checkout_success(request: Request, db: Session = Depends(get_db),
-                            type: str = Query("pro_monthly")):
-    sess = _get_or_create_session(request, db)
-    # Mark as pro
-    sess.is_pro = True
-    db.commit()
-    label = _PRODUCT_PRICES.get(type, {}).get("label", "your plan")
-    return HTMLResponse(f"""{_html_head("Payment Successful", "Welcome to Idea Factory Pro")}
-<body><div class="ctr" style="text-align:center;padding-top:60px">
-<div style="font-size:52px">🎉</div>
-<h1 style="color:var(--ac);margin-top:16px">Payment Successful!</h1>
-<p style="color:var(--mt);font-family:var(--mn);margin-top:8px">You now have access to {label}</p>
-<a class="btn" href="/" style="display:inline-block;margin-top:24px">Start Validating Ideas →</a>
-</div></body></html>""")
-
-
-@app.get("/checkout/cancel", response_class=HTMLResponse)
-async def checkout_cancel():
-    return HTMLResponse(f"""{_html_head("Payment Cancelled", "No charge was made")}
-<body><div class="ctr" style="text-align:center;padding-top:60px">
-<div style="font-size:52px">😕</div>
-<h1 style="margin-top:16px">Payment Cancelled</h1>
-<p style="color:var(--mt);font-family:var(--mn);margin-top:8px">No charge was made. You can try again anytime.</p>
-<a class="btn" href="/" style="display:inline-block;margin-top:24px">Back to Idea Factory</a>
-</div></body></html>""")
-
-
-@app.post("/api/checkout/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    payload = await request.body()
-    if not payload:
-        raise HTTPException(400, "Empty webhook body")
-    sig = request.headers.get("stripe-signature", "")
-    if not STRIPE_ENABLED or not _stripe_module:
-        raise HTTPException(503, "Stripe not configured")
-    try:
-        if STRIPE_WEBHOOK_SECRET:
-            event = _stripe_module.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-        else:
-            event = json.loads(payload)
-    except Exception as e:
-        raise HTTPException(400, f"Webhook error: {e}")
-
-    if event.get("type") in ("checkout.session.completed", "invoice.payment_succeeded"):
-        obj = event.get("data", {}).get("object", {})
-        meta = obj.get("metadata", {})
-        sid = meta.get("session_id")
-        if sid:
-            sess = db.query(UserSessionDB).filter(UserSessionDB.session_id == sid).first()
-            if sess:
-                sess.is_pro = True
-                sess.stripe_customer_id = obj.get("customer", "")
-                db.commit()
-    return {"status": "ok"}
 
 
 # ═════════════════════════════════════════════════════
@@ -1610,17 +1406,19 @@ async def daily_digest(admin: bool = Depends(check_admin), db: Session = Depends
     ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today).scalar() or 0
     total = db.query(func.count(IdeaDB.id)).scalar() or 0
     builds = db.query(func.count(IdeaDB.id)).filter(IdeaDB.final_decision.ilike("%BUILD%")).scalar() or 0
-    pro_users = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    sessions_today = db.query(func.count(UserSessionDB.session_id)).filter(
+        UserSessionDB.last_seen >= today
+    ).scalar() or 0
     return {
         "date": datetime.utcnow().strftime("%Y-%m-%d"),
         "three_numbers": {
             "ideas_today": ideas_today,
             "total_ideas": total,
-            "pro_users": pro_users,
+            "pro_users": 0,  # Personal tool — no paying users
         },
         "builds": builds,
-        "mrr": pro_users * PRO_PRICE_USD,
-        "summary": f"{ideas_today} ideas validated today. {builds} marked BUILD. {pro_users} pro users (${pro_users * PRO_PRICE_USD}/mo MRR).",
+        "sessions_today": sessions_today,
+        "summary": f"{ideas_today} ideas validated today. {builds} marked BUILD. {total} total ideas in database.",
     }
 
 
@@ -1669,64 +1467,6 @@ async def ready_to_post(admin: bool = Depends(check_admin), db: Session = Depend
                    "tweet": i.x_post, "reddit": i.reddit} for i in ideas],
         "count": len(ideas)
     }
-
-
-# ═════════════════════════════════════════════════════
-#  API ACCESS (v1 key-based)
-# ═════════════════════════════════════════════════════
-@app.post("/api/v1/validate")
-async def api_validate(request: Request, api_user: dict = Depends(_check_api_key)):
-    """Programmatic API access for validated API key holders."""
-    body = await request.json()
-    idea_text = (body.get("idea") or body.get("raw_idea") or "").strip()
-    if not idea_text:
-        raise HTTPException(400, "idea field required")
-    # Simplified sync analysis for API users
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(503, "AI backend not configured")
-    research, sentiment = await asyncio.gather(
-        research_with_perplexity(idea_text),
-        scan_with_grok(idea_text),
-    )
-    analysis = await analyze_with_claude(idea_text, research, sentiment)
-    business = await model_with_gpt(idea_text, research, sentiment)
-    idea_id = str(uuid.uuid4())[:8]
-    share_token = secrets.token_urlsafe(12)
-    score = calculate_score(analysis)
-    result = combine_results(idea_text, analysis, research, sentiment, business,
-                             idea_id, share_token, score)
-    db = SessionLocal()
-    try:
-        db.add(IdeaDB(
-            id=idea_id, raw_idea=idea_text,
-            concept=analysis.get("concept", ""),
-            target_user=analysis.get("target_user", ""),
-            core_pain=analysis.get("core_pain", ""),
-            value_promise=analysis.get("value_promise", ""),
-            g1=analysis.get("gate1", {}).get("question", ""),
-            g1r=f"{analysis.get('gate1', {}).get('answer', '')} — {analysis.get('gate1', {}).get('reasoning', '')}",
-            g2=analysis.get("gate2", {}).get("question", ""),
-            g2r=f"{analysis.get('gate2', {}).get('answer', '')} — {analysis.get('gate2', {}).get('reasoning', '')}",
-            g3=analysis.get("gate3", {}).get("question", ""),
-            g3r=f"{analysis.get('gate3', {}).get('answer', '')} — {analysis.get('gate3', {}).get('reasoning', '')}",
-            reddit=analysis.get("reddit_post", ""),
-            x_post=analysis.get("x_post", ""),
-            offer=analysis.get("offer", ""),
-            price=analysis.get("price", ""),
-            cta=analysis.get("cta", ""),
-            final_decision=analysis.get("final_decision", "MAYBE"),
-            score=score, ai_response=result,
-            is_public=True, share_token=share_token,
-            category=analysis.get("category", "Other"),
-            regional_scores=analysis.get("regional_scores"),
-            timing_analysis=analysis.get("timing_analysis"),
-            moat_analysis=analysis.get("moat_analysis"),
-            perplexity_research=research, grok_sentiment=sentiment, gpt_business=business,
-        ))
-        db.commit()
-    finally:
-        db.close()
-    return result
 
 
 # ═════════════════════════════════════════════════════

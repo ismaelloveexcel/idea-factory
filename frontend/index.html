@@ -429,37 +429,6 @@ body {
   padding: 20px; margin-bottom: 14px;
 }
 .intel-section-title { font-family: var(--mn); font-size: 10px; color: var(--ac); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
-
-/* ── UPGRADE MODAL ── */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-  display: none; align-items: center; justify-content: center;
-  z-index: 500; padding: 20px;
-}
-.modal-overlay.show { display: flex; }
-.modal-box {
-  background: var(--sf); border: 1px solid var(--bd); border-radius: 16px;
-  padding: 32px; max-width: 480px; width: 100%; position: relative;
-}
-.modal-close {
-  position: absolute; top: 16px; right: 16px;
-  background: var(--sf2); border: 1px solid var(--bd); border-radius: 6px;
-  width: 28px; height: 28px; cursor: pointer; color: var(--mt);
-  font-size: 14px; display: flex; align-items: center; justify-content: center;
-}
-.modal-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
-.modal-sub { font-size: 13px; color: var(--mt); margin-bottom: 24px; }
-.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-.pricing-card {
-  background: var(--sf2); border: 1px solid var(--bd); border-radius: 12px;
-  padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s;
-}
-.pricing-card:hover { border-color: var(--ac-bd); }
-.pricing-card.featured { border-color: var(--ac-bd); background: var(--ac-dim); }
-.pricing-price { font-size: 24px; font-weight: 900; color: var(--ac); }
-.pricing-period { font-family: var(--mn); font-size: 9px; color: var(--mt); margin-bottom: 6px; }
-.pricing-name { font-size: 11px; font-weight: 700; color: var(--tx); margin-bottom: 4px; }
-.pricing-desc { font-family: var(--mn); font-size: 9px; color: var(--mt); }
 </style>
 </head>
 <body>
@@ -472,56 +441,11 @@ body {
   <div class="nav-links">
     <a href="/public/leaderboard">Leaderboard</a>
     <a href="/public/graveyard">Graveyard</a>
-    <a href="#" onclick="showUpgrade(); return false;" style="color:var(--ac)">Upgrade</a>
   </div>
 </header>
 
-<!-- Discount Bar -->
-<div class="discount-bar" id="discountBar">
-  <strong>🔥 LIMITED TIME:</strong> Get Pro access for <strong>$29/mo</strong> — unlimited validations + premium features.
-  Offer ends in <span class="discount-timer" id="discountTimer">15:00</span>
-  <a href="#" onclick="showUpgrade(); return false;" style="background:var(--ac);color:#000;padding:4px 12px;border-radius:6px;font-weight:700;font-size:10px;text-decoration:none;margin-left:6px">Upgrade →</a>
-</div>
-
 <div class="engines" id="engines"></div>
 <div class="toast" id="toast"></div>
-
-<!-- Upgrade Modal -->
-<div class="modal-overlay" id="upgradeModal">
-  <div class="modal-box">
-    <button class="modal-close" onclick="document.getElementById('upgradeModal').classList.remove('show')">✕</button>
-    <div class="modal-title">🚀 Unlock Idea Factory Pro</div>
-    <div class="modal-sub">Validate unlimited ideas with all 4 AI engines + premium features</div>
-    <div class="pricing-grid">
-      <div class="pricing-card" onclick="checkout('single_report')">
-        <div class="pricing-price">$9</div>
-        <div class="pricing-period">one-time</div>
-        <div class="pricing-name">Single Report</div>
-        <div class="pricing-desc">1 premium PDF</div>
-      </div>
-      <div class="pricing-card featured" onclick="checkout('pro_monthly')">
-        <div class="pricing-price">$29</div>
-        <div class="pricing-period">/month</div>
-        <div class="pricing-name">Pro Monthly</div>
-        <div class="pricing-desc">Unlimited + API</div>
-      </div>
-      <div class="pricing-card" onclick="checkout('api_monthly')">
-        <div class="pricing-price">$49</div>
-        <div class="pricing-period">/month</div>
-        <div class="pricing-name">API Access</div>
-        <div class="pricing-desc">Programmatic</div>
-      </div>
-    </div>
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--bd)">
-      <div style="font-family:var(--mn);font-size:10px;color:var(--mt);margin-bottom:8px">HAVE A REFERRAL CODE?</div>
-      <div style="display:flex;gap:8px">
-        <input id="referralCodeInput" type="text" placeholder="Enter code..."
-          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;color:var(--tx);font-family:var(--mn);font-size:12px;outline:none">
-        <button onclick="applyReferral()" style="background:var(--sf);border:1px solid var(--ac-bd);color:var(--ac);padding:8px 16px;border-radius:8px;cursor:pointer;font-family:var(--mn);font-size:11px;font-weight:700">Apply</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div class="main">
 
@@ -554,10 +478,6 @@ body {
         <span id="btnText">Validate This Idea</span>
       </button>
     </div>
-    <!-- Hidden fields for v3 API compatibility & tracking -->
-    <input type="hidden" id="rawIdea" name="rawIdea" value="">
-    <input type="hidden" id="painWho" name="painWho" value="">
-    <input type="hidden" id="painQuotes" name="painQuotes" value="">
     <div class="examples-row">
       <div class="example-chip" onclick="useExample(this)">AI resume builder for non-tech people</div>
       <div class="example-chip" onclick="useExample(this)">Meal kit service for bodybuilders</div>
@@ -730,7 +650,6 @@ let isAnalyzing = false;
 document.addEventListener('DOMContentLoaded', function() {
   checkEngines();
   loadHistory();
-  startDiscountTimer();
   document.getElementById('ideaInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyzeIdea(); }
   });
@@ -768,7 +687,6 @@ async function analyze() {
   const idea = document.getElementById('ideaInput').value.trim();
   if (!idea || isAnalyzing) return;
   isAnalyzing = true;
-  document.getElementById('rawIdea').value = idea;
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
   document.getElementById('btnText').textContent = 'Analyzing...';
@@ -798,8 +716,7 @@ async function analyze() {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(function() { return {}; });
-      if (resp.status === 429) { showUpgrade(); toast(err.detail || 'Limit reached. Upgrade for unlimited!'); }
-      else { toast(err.detail || 'Analysis failed. Please try again.'); }
+      toast(err.detail || 'Analysis failed. Please try again.');
       isAnalyzing = false; btn.disabled = false;
       document.getElementById('btnText').textContent = 'Validate This Idea';
       return;
@@ -1063,7 +980,6 @@ function renderResults(r) {
     '<a class="act-btn primary" href="/api/idea/' + encodeURIComponent(id) + '/pdf" target="_blank">Download PDF</a>'
     + ' <button class="act-btn outline" onclick="copyText(this,\'' + escAttr(r.share_url || '') + '\')">Copy Share Link</button>'
     + ' <button class="act-btn outline" onclick="getBuildPlan(\'' + escAttr(id) + '\')">Build Plan</button>'
-    + ' <button class="act-btn outline" onclick="showUpgrade()">Go Pro</button>'
     + ' <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>';
 
   loadHistory();
@@ -1094,62 +1010,6 @@ function renderMarketIntel(r) {
     + '<div class="moat-indicator" style="margin-left:10px">' + dotsHTML + '</div>'
     + '<span style="font-size:11px;color:var(--mt)">Moat: ' + esc(moatLevel) + '</span>'
     + '</div>';
-}
-
-function showUpgrade() {
-  document.getElementById('upgradeModal').classList.add('show');
-}
-
-function unlockPremium(ideaId) {
-  showUpgrade();
-}
-
-async function checkout(productType, ideaId) {
-  try {
-    const body = { product_type: productType };
-    if (ideaId) { body.idea_id = ideaId; }
-    const r = await fetch('/api/checkout/create-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const d = await r.json();
-    if (r.ok && d.url) { window.location.href = d.url; }
-    else { toast(d.detail || 'Payment not configured yet. Contact the admin.'); }
-  } catch(e) { toast('Payment unavailable. Please try again later.'); }
-}
-
-async function applyReferral() {
-  const inp = document.getElementById('referralCodeInput');
-  const code = inp ? inp.value.trim().toUpperCase() : '';
-  if (!code) { toast('Please enter a referral code'); return; }
-  try {
-    const r = await fetch('/api/referral/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code })
-    });
-    const d = await r.json();
-    if (r.ok) { toast('Referral applied! You got 1 bonus validation.'); if (inp) { inp.value = ''; } }
-    else { toast(d.detail || 'Invalid referral code'); }
-  } catch(e) { toast('Could not apply referral code'); }
-}
-
-function startDiscountTimer() {
-  const timerEl = document.getElementById('discountTimer');
-  if (!timerEl) return;
-  let stored = localStorage.getItem('discountStart');
-  if (!stored) { stored = Date.now().toString(); localStorage.setItem('discountStart', stored); }
-  let seconds = Math.max(0, 15 * 60 - Math.floor((Date.now() - parseInt(stored)) / 1000));
-  function tick() {
-    if (seconds <= 0) { timerEl.textContent = '00:00'; return; }
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    timerEl.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-    seconds--;
-    setTimeout(tick, 1000);
-  }
-  tick();
 }
 
 function esc(s) {
