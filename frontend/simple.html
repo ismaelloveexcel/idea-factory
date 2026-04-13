@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idea Factory — Backend Connected</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #080808;
+  --surface: #0f0f0f;
+  --border: #1f1f1f;
+  --text: #efefef;
+  --text-muted: #4a4a4a;
+  --accent: #c8ff00;
+  --green: #00e87a;
+  --red: #ff3b3b;
+  --font: 'Syne', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.status-badge {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.status-badge.connected {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.status-badge.error {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+input, textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  width: 100%;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.result {
+  margin-top: 20px;
+}
+
+.result-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.result-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.result-value {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.decision {
+  text-align: center;
+  padding: 24px;
+  margin-top: 20px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+}
+
+.decision.build {
+  border-color: var(--green);
+  background: rgba(0, 232, 122, 0.05);
+}
+
+.decision.kill {
+  border-color: var(--red);
+  background: rgba(255, 59, 59, 0.05);
+}
+
+.decision.test {
+  border-color: var(--accent);
+  background: rgba(200, 255, 0, 0.05);
+}
+
+.decision-text {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.decision.build .decision-text { color: var(--green); }
+.decision.kill .decision-text { color: var(--red); }
+.decision.test .decision-text { color: var(--accent); }
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.gate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.gate-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+
+.gate-card.pass {
+  border-color: var(--green);
+  background: rgba(0, 232, 122, 0.05);
+}
+
+.gate-card.fail {
+  border-color: var(--red);
+  background: rgba(255, 59, 59, 0.05);
+}
+
+.gate-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.gate-result {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.gate-card.pass .gate-result { color: var(--green); }
+.gate-card.fail .gate-result { color: var(--red); }
+
+.gate-reason {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.presell-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.presell-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.presell-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.presell-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  font-family: var(--mono);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>IDEA FACTORY</h1>
+    <div class="subtitle">Backend Connected Version</div>
+    <div id="backendStatus" class="status-badge">Checking backend...</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">1. Pain Validation</div>
+    
+    <div class="form-group">
+      <label>Who has this pain?</label>
+      <input type="text" id="painWho" placeholder="e.g., Solo founders validating SaaS ideas">
+    </div>
+
+    <div class="form-group">
+      <label>Direct quotes / complaints (2+ separate pain points)</label>
+      <textarea id="painQuotes" placeholder="e.g., 
+- 'I built for 6 months, nobody paid...'
+- 'How do I know if my idea is worth building?'
+- 'Wasted $10k on a product nobody wanted'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>How often do they feel this pain?</label>
+      <input type="text" id="painFreq" placeholder="e.g., Every solo founder asks this weekly">
+    </div>
+
+    <div class="form-group">
+      <label>Name 3+ real potential buyers</label>
+      <input type="text" id="painBuyers" placeholder="e.g., @startupfounder, @indiemaker, @saasbuilder">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2. Your Idea</div>
+    
+    <div class="form-group">
+      <label>Describe your idea (plain language)</label>
+      <textarea id="rawIdea" placeholder="e.g., A tool that scrapes pain from Reddit and scores startup ideas before you build them"></textarea>
+    </div>
+
+    <button class="btn" id="analyzeBtn" onclick="analyzeIdea()">
+      ⚡ Analyze Idea
+    </button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+
+// ══════════════════════════════════════════════════
+// BACKEND STATUS CHECK
+// ══════════════════════════════════════════════════
+async function checkBackend() {
+  const badge = document.getElementById('backendStatus');
+  try {
+    const res = await fetch(API_BASE + '/');
+    if (res.ok) {
+      badge.textContent = '✓ Backend Connected';
+      badge.className = 'status-badge connected';
+    } else {
+      throw new Error('Backend error');
+    }
+  } catch(e) {
+    badge.textContent = '✗ Backend Offline';
+    badge.className = 'status-badge error';
+    toast('⚠️ Backend not running. Start with: cd backend && uvicorn main:app --reload');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// ANALYZE IDEA
+// ══════════════════════════════════════════════════
+async function analyzeIdea() {
+  const painWho = document.getElementById('painWho').value.trim();
+  const painQuotes = document.getElementById('painQuotes').value.trim();
+  const painFreq = document.getElementById('painFreq').value.trim();
+  const painBuyers = document.getElementById('painBuyers').value.trim();
+  const rawIdea = document.getElementById('rawIdea').value.trim();
+
+  // Validation
+  if (!painWho || !painQuotes || !painFreq || !painBuyers || !rawIdea) {
+    toast('⚠️ Fill all fields');
+    return;
+  }
+
+  if (painQuotes.length < 80) {
+    toast('⚠️ Add more detailed pain quotes (80+ chars)');
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = '<div class="loading">⚡ Sending to AI for analysis...</div>';
+
+  try {
+    const res = await fetch(API_BASE + '/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raw_idea: rawIdea,
+        pain: {
+          pain_who: painWho,
+          pain_quotes: painQuotes,
+          pain_freq: painFreq,
+          pain_buyers: painBuyers
+        }
+      })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Analysis failed');
+    }
+
+    const data = await res.json();
+    displayResults(data);
+    toast('✓ Analysis complete');
+
+  } catch(e) {
+    resultsDiv.innerHTML = `<div class="section"><p style="color: var(--red);">Error: ${e.message}</p></div>`;
+    toast('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Analyze Idea';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// DISPLAY RESULTS
+// ══════════════════════════════════════════════════
+function displayResults(data) {
+  const html = `
+    <div class="section">
+      <div class="section-title">📊 Analysis Results</div>
+      
+      <div class="result-item">
+        <div class="result-label">Concept</div>
+        <div class="result-value">${data.concept}</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Target User</div>
+        <div class="result-value">${data.target_user}</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Core Pain</div>
+        <div class="result-value">${data.core_pain}</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Value Promise</div>
+        <div class="result-value">${data.value_promise}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🚪 3-Gate Evaluation</div>
+      
+      <div class="gate-grid">
+        <div class="gate-card ${data.g1r.startsWith('YES') ? 'pass' : 'fail'}">
+          <div class="gate-label">Gate 1</div>
+          <div class="gate-result">${data.g1r.split('—')[0].trim()}</div>
+          <div class="gate-reason">${data.g1r.split('—')[1] || ''}</div>
+        </div>
+
+        <div class="gate-card ${data.g2r.startsWith('YES') ? 'pass' : 'fail'}">
+          <div class="gate-label">Gate 2</div>
+          <div class="gate-result">${data.g2r.split('—')[0].trim()}</div>
+          <div class="gate-reason">${data.g2r.split('—')[1] || ''}</div>
+        </div>
+
+        <div class="gate-card ${data.g3r.startsWith('YES') ? 'pass' : 'fail'}">
+          <div class="gate-label">Gate 3</div>
+          <div class="gate-result">${data.g3r.split('—')[0].trim()}</div>
+          <div class="gate-reason">${data.g3r.split('—')[1] || ''}</div>
+        </div>
+      </div>
+
+      <div class="decision ${data.final_decision.includes('KILL') ? 'kill' : data.final_decision.includes('TEST') ? 'test' : 'build'}">
+        <div class="decision-text">${data.final_decision}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📢 Pre-Sell Content</div>
+      
+      <div class="presell-grid">
+        <div class="presell-card">
+          <div class="presell-label">Reddit Post</div>
+          <div class="presell-content">${data.reddit}</div>
+        </div>
+
+        <div class="presell-card">
+          <div class="presell-label">X / Twitter</div>
+          <div class="presell-content">${data.x_post}</div>
+        </div>
+      </div>
+
+      <div class="result-item" style="margin-top: 12px;">
+        <div class="result-label">Offer</div>
+        <div class="result-value">${data.offer}</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Price</div>
+        <div class="result-value">${data.price}</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Call to Action</div>
+        <div class="result-value">${data.cta}</div>
+      </div>
+    </div>
+
+    <div class="section" style="text-align: center; padding: 20px; background: rgba(200,255,0,0.03);">
+      <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
+        IDEA ID: ${data.id}
+      </div>
+      <div style="font-size: 14px; color: var(--text-muted); line-height: 1.6;">
+        ${data.final_decision.includes('KILL') 
+          ? '💀 This idea failed validation. Move on to the next one.' 
+          : data.final_decision.includes('TEST') 
+            ? '🧪 Post the pre-sell content above and track signals for 48 hours.' 
+            : '🚀 All gates passed! Start building immediately.'}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('results').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ══════════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+checkBackend();
+</script>
+
+</body>
+</html>
