@@ -627,6 +627,15 @@ body {
     </div>
 
     <div class="actions-bar" id="actionsBar"></div>
+
+    <!-- Deep Dive Section (populated by JS) -->
+    <div id="deepDiveSection" style="display:none">
+      <div class="card" id="deepDiveCard">
+        <div class="card-head"><div class="card-title" id="deepDiveTitle">Deep Dive</div>
+        <button class="copy-btn" onclick="closeDeepDive()" style="position:static">✕ Close</button></div>
+        <div class="card-body" id="deepDiveBody" style="max-height:70vh;overflow-y:auto"></div>
+      </div>
+    </div>
   </div>
 
   <!-- History -->
@@ -660,11 +669,14 @@ async function checkEngines() {
     const r = await fetch('/api/health');
     const d = await r.json();
     const el = document.getElementById('engines');
-    const names = { claude: 'Claude', perplexity: 'Perplexity', gpt4o: 'GPT-4o', grok: 'Grok' };
+    const names = { claude: 'Claude', perplexity: 'Research', gpt4o: 'Business Model', grok: 'Sentiment' };
     el.innerHTML = Object.entries(d.engines || {}).map(function(entry) {
       const k = entry[0]; const v = entry[1];
       return '<div class="engine"><div class="engine-dot ' + (v ? 'on' : 'off') + '"></div>' + esc(names[k] || k) + '</div>';
     }).join('');
+    if (d.note) {
+      el.innerHTML += '<div style="width:100%;text-align:center;font-family:var(--mn);font-size:9px;color:var(--mt);margin-top:4px">' + esc(d.note) + '</div>';
+    }
   } catch(e) {}
 }
 
@@ -980,7 +992,18 @@ function renderResults(r) {
     '<a class="act-btn primary" href="/api/idea/' + encodeURIComponent(id) + '/pdf" target="_blank">Download PDF</a>'
     + ' <button class="act-btn outline" onclick="copyText(this,\'' + escAttr(r.share_url || '') + '\')">Copy Share Link</button>'
     + ' <button class="act-btn outline" onclick="getBuildPlan(\'' + escAttr(id) + '\')">Build Plan</button>'
-    + ' <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>';
+    + ' <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>'
+    + '<div style="width:100%;margin-top:10px;border-top:1px solid var(--bd);padding-top:10px">'
+    + '<div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Deep Dive Tools</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'pivot-suggestions\',\'Pivot Suggestions\')">&#128260; Pivots</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'interview-script\',\'Interview Script\')">&#127897; Interview Script</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'gtm-playbook\',\'Go-to-Market Playbook\')">&#127937; GTM Playbook</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'swot\',\'SWOT Analysis\')">&#9878; SWOT</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'unit-economics\',\'Unit Economics\')">&#128200; Unit Economics</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'twitter-thread\',\'Twitter Thread\')">&#128038; Twitter Thread</button>'
+    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'landing-page\',\'Landing Page\')">&#127760; Landing Page</button>'
+    + '</div></div>';
 
   loadHistory();
   document.getElementById('scoreHero').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1070,9 +1093,278 @@ async function getBuildPlan(ideaId) {
   try {
     const r = await fetch('/api/idea/' + encodeURIComponent(ideaId) + '/premium-report');
     const data = await r.json();
-    const w = window.open('', '_blank');
-    w.document.write('<html><head><title>Build Plan</title><style>body{background:#080808;color:#eee;font-family:"JetBrains Mono",monospace;padding:40px;font-size:13px;line-height:1.6}pre{white-space:pre-wrap}h1{color:#c8ff00}</style></head><body><h1>Build Plan</h1><pre>' + esc(JSON.stringify(data, null, 2)) + '</pre></body></html>');
+    showDeepDiveResult('Build Plan', renderBuildPlan(data));
   } catch(e) { toast('Failed to generate plan'); }
+}
+
+function closeDeepDive() {
+  document.getElementById('deepDiveSection').style.display = 'none';
+}
+
+async function deepDive(ideaId, endpoint, title) {
+  toast('Generating ' + title + '...');
+  document.getElementById('deepDiveSection').style.display = 'block';
+  document.getElementById('deepDiveTitle').textContent = title;
+  document.getElementById('deepDiveBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--mt)"><div style="font-size:24px;margin-bottom:8px">&#9203;</div>Generating ' + esc(title) + '...</div>';
+  document.getElementById('deepDiveSection').scrollIntoView({ behavior: 'smooth' });
+
+  if (endpoint === 'landing-page') {
+    window.open('/api/idea/' + encodeURIComponent(ideaId) + '/landing-page', '_blank');
+    document.getElementById('deepDiveBody').innerHTML = '<div style="text-align:center;padding:20px;color:var(--gn)">Landing page opened in new tab!</div>';
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/idea/' + encodeURIComponent(ideaId) + '/' + endpoint);
+    if (!resp.ok) { throw new Error('Failed'); }
+    const data = await resp.json();
+    showDeepDiveResult(title, renderDeepDive(endpoint, data));
+  } catch(e) {
+    document.getElementById('deepDiveBody').innerHTML = '<div style="text-align:center;padding:20px;color:var(--rd)">Failed to generate. Please try again.</div>';
+  }
+}
+
+function showDeepDiveResult(title, html) {
+  document.getElementById('deepDiveSection').style.display = 'block';
+  document.getElementById('deepDiveTitle').textContent = title;
+  document.getElementById('deepDiveBody').innerHTML = html;
+  document.getElementById('deepDiveSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderDeepDive(endpoint, data) {
+  if (endpoint === 'pivot-suggestions') return renderPivots(data);
+  if (endpoint === 'interview-script') return renderInterview(data);
+  if (endpoint === 'gtm-playbook') return renderGTM(data);
+  if (endpoint === 'swot') return renderSWOT(data);
+  if (endpoint === 'unit-economics') return renderUnitEcon(data);
+  if (endpoint === 'twitter-thread') return renderThread(data);
+  return '<pre style="white-space:pre-wrap;font-size:12px;color:var(--dm)">' + esc(JSON.stringify(data, null, 2)) + '</pre>';
+}
+
+function renderPivots(d) {
+  var h = '<div style="font-size:13px;color:var(--dm);margin-bottom:16px;line-height:1.6">' + esc(d.diagnosis || '') + '</div>';
+  (d.pivots || []).forEach(function(p, i) {
+    var sc = (p.estimated_score || 0) >= 70 ? 'var(--gn)' : (p.estimated_score || 0) >= 40 ? 'var(--or)' : 'var(--rd)';
+    h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      + '<div style="font-weight:700;font-size:15px">' + (i+1) + '. ' + esc(p.name || '') + '</div>'
+      + '<span style="font-family:var(--mn);font-size:12px;font-weight:700;color:' + sc + '">' + (p.estimated_score || '?') + '/100</span></div>'
+      + '<div style="font-size:13px;color:var(--dm);margin-bottom:6px">' + esc(p.description || '') + '</div>'
+      + '<div style="font-size:12px;color:var(--gn);margin-bottom:4px"><strong>Why better:</strong> ' + esc(p.why_better || '') + '</div>'
+      + '<div style="display:flex;gap:10px;font-family:var(--mn);font-size:10px;color:var(--mt)">'
+      + '<span>Difficulty: ' + esc(p.difficulty || '?') + '</span>'
+      + '<span>Target: ' + esc(p.target_change || '?') + '</span></div></div>';
+  });
+  if (d.best_pivot) h += '<div style="background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:8px;padding:12px;font-size:13px;color:var(--ac);margin-top:10px"><strong>Best pivot:</strong> ' + esc(d.best_pivot) + '</div>';
+  return h;
+}
+
+function renderInterview(d) {
+  var h = '';
+  if (d.intro_script) h += '<div style="background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:8px;padding:14px;margin-bottom:16px"><div style="font-family:var(--mn);font-size:9px;color:var(--ac);text-transform:uppercase;margin-bottom:6px">Opening Script</div><div style="font-size:13px;color:var(--tx);line-height:1.6">' + esc(d.intro_script) + '</div></div>';
+
+  function renderQBlock(title, qs) {
+    if (!qs || !qs.length) return '';
+    var b = '<div style="margin-bottom:16px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">' + esc(title) + '</div>';
+    qs.forEach(function(q) {
+      b += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px">"' + esc(q.question || '') + '"</div>'
+        + '<div style="font-size:11px;color:var(--mt);margin-bottom:4px">Purpose: ' + esc(q.why || '') + '</div>';
+      if (q.green_flag) b += '<div style="font-size:11px;color:var(--gn)">&#9989; ' + esc(q.green_flag) + '</div>';
+      if (q.red_flag) b += '<div style="font-size:11px;color:var(--rd)">&#10060; ' + esc(q.red_flag) + '</div>';
+      b += '</div>';
+    });
+    return b + '</div>';
+  }
+
+  h += renderQBlock('Warm Up', d.warm_up);
+  h += renderQBlock('Pain Discovery', d.pain_discovery);
+  h += renderQBlock('Solution Validation', d.solution_validation);
+  h += renderQBlock('Closing', d.closing);
+
+  if (d.where_to_find_people) {
+    h += '<div style="margin-bottom:12px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Where to Find People</div><div class="tag-list">';
+    d.where_to_find_people.forEach(function(p) { h += '<span class="tag advantage">' + esc(p) + '</span>'; });
+    h += '</div></div>';
+  }
+  if (d.sample_size) h += '<div style="font-size:12px;color:var(--dm);font-style:italic">Sample size: ' + esc(d.sample_size) + '</div>';
+  return h;
+}
+
+function renderGTM(d) {
+  var h = '<div style="font-size:14px;color:var(--tx);margin-bottom:18px;line-height:1.6">' + esc(d.launch_strategy || '') + '</div>';
+
+  if (d.pre_launch) {
+    h += '<div style="margin-bottom:18px"><div style="font-family:var(--mn);font-size:10px;color:var(--ac);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Pre-Launch (' + esc(d.pre_launch.duration || '') + ')</div>';
+    (d.pre_launch.actions || []).forEach(function(a) {
+      h += '<div style="display:flex;gap:12px;margin-bottom:8px;padding:10px;background:var(--sf2);border-radius:8px">'
+        + '<div style="font-family:var(--mn);font-size:10px;color:var(--ac);min-width:60px;font-weight:600">' + esc(a.day || '') + '</div>'
+        + '<div style="flex:1"><div style="font-size:13px;color:var(--tx)">' + esc(a.action || '') + '</div>'
+        + '<div style="font-size:10px;color:var(--mt)">' + esc(a.channel || '') + ' → ' + esc(a.goal || '') + '</div></div></div>';
+    });
+    h += '</div>';
+  }
+
+  if (d.launch_day && d.launch_day.platforms) {
+    h += '<div style="margin-bottom:18px"><div style="font-family:var(--mn);font-size:10px;color:var(--gn);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Launch Day</div>';
+    d.launch_day.platforms.forEach(function(p) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="font-weight:700;color:var(--tx);margin-bottom:4px">' + esc(p.name || '') + '</div>'
+        + '<div style="font-size:12px;color:var(--dm);margin-bottom:2px">' + esc(p.strategy || '') + '</div>'
+        + '<div style="font-size:11px;color:var(--gn)">' + esc(p.expected_result || '') + '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  if (d.growth_channels) {
+    h += '<div style="margin-bottom:18px"><div style="font-family:var(--mn);font-size:10px;color:var(--or);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Growth Channels</div>';
+    d.growth_channels.forEach(function(ch) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        + '<span style="font-weight:700;color:var(--tx)">' + esc(ch.channel || '') + '</span>'
+        + '<span style="font-family:var(--mn);font-size:10px;color:var(--mt)">' + esc(ch.cost || '') + ' · ' + esc(ch.effort || '') + '</span></div>'
+        + '<div class="tag-list">';
+      (ch.tactics || []).forEach(function(t) { h += '<span class="tag">' + esc(t) + '</span>'; });
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  if (d.budget_breakdown) {
+    var bb = d.budget_breakdown;
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">';
+    [['$0', bb.zero_budget], ['$100-500', bb.small_budget], ['$1000+', bb.growth_budget]].forEach(function(pair) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;text-align:center">'
+        + '<div style="font-family:var(--mn);font-size:12px;font-weight:700;color:var(--ac);margin-bottom:4px">' + esc(pair[0]) + '</div>'
+        + '<div style="font-size:11px;color:var(--dm)">' + esc(pair[1] || '') + '</div></div>';
+    });
+    h += '</div>';
+  }
+  return h;
+}
+
+function renderSWOT(d) {
+  function quadrant(title, items, color, fieldMap) {
+    var h = '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+      + '<div style="font-family:var(--mn);font-size:11px;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">' + esc(title) + '</div>';
+    (items || []).forEach(function(item) {
+      var badge = item[fieldMap.level] || '';
+      var bc = badge === 'HIGH' ? 'var(--rd)' : badge === 'MEDIUM' ? 'var(--or)' : 'var(--gn)';
+      if (title === 'Strengths' || title === 'Opportunities') bc = badge === 'HIGH' ? 'var(--gn)' : badge === 'MEDIUM' ? 'var(--or)' : 'var(--rd)';
+      h += '<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bd)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center">'
+        + '<span style="font-size:13px;font-weight:600;color:var(--tx)">' + esc(item.point || '') + '</span>'
+        + '<span style="font-family:var(--mn);font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.05);color:' + bc + '">' + esc(badge) + '</span></div>'
+        + '<div style="font-size:11px;color:var(--dm);margin-top:2px">' + esc(item[fieldMap.action] || '') + '</div></div>';
+    });
+    return h + '</div>';
+  }
+
+  var h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">';
+  h += quadrant('Strengths', d.strengths, 'var(--gn)', {level:'impact', action:'leverage'});
+  h += quadrant('Weaknesses', d.weaknesses, 'var(--rd)', {level:'severity', action:'mitigation'});
+  h += quadrant('Opportunities', d.opportunities, 'var(--ac)', {level:'timeline', action:'action'});
+  h += quadrant('Threats', d.threats, 'var(--or)', {level:'likelihood', action:'defense'});
+  h += '</div>';
+  if (d.overall_assessment) h += '<div style="font-size:13px;color:var(--dm);line-height:1.6;margin-bottom:10px">' + esc(d.overall_assessment) + '</div>';
+  if (d.top_priority) h += '<div style="background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:8px;padding:12px;font-size:13px;color:var(--ac)"><strong>Top priority:</strong> ' + esc(d.top_priority) + '</div>';
+  return h;
+}
+
+function renderUnitEcon(d) {
+  var h = '<div class="biz-grid" style="margin-bottom:16px">';
+  var pairs = [
+    ['Price', d.price_per_unit], ['Blended CAC', (d.cac||{}).blended], ['LTV', (d.ltv||{}).ltv],
+    ['LTV:CAC', d.ltv_cac_ratio], ['Payback', d.payback_period], ['Margin', ((d.ltv||{}).gross_margin_pct||'?')+'%']
+  ];
+  pairs.forEach(function(p) {
+    h += '<div class="biz-card"><div class="biz-val">' + esc(p[1]||'?') + '</div><div class="biz-lbl">' + esc(p[0]) + '</div></div>';
+  });
+  h += '</div>';
+
+  if (d.breakeven_analysis) {
+    var be = d.breakeven_analysis;
+    h += '<div style="background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:8px;padding:14px;margin-bottom:14px;text-align:center">'
+      + '<div style="font-family:var(--mn);font-size:9px;color:var(--ac);text-transform:uppercase;margin-bottom:6px">Break Even</div>'
+      + '<div style="font-size:20px;font-weight:800;color:var(--ac)">' + (be.customers_to_breakeven||'?') + ' customers</div>'
+      + '<div style="font-size:12px;color:var(--dm)">' + esc(be.realistic_timeline||'') + '</div></div>';
+  }
+
+  if (d.scaling_economics) {
+    var se = d.scaling_economics;
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:8px">Scaling Projections</div>';
+    [['100 users', se.at_100_customers], ['500 users', se.at_500_customers], ['1000 users', se.at_1000_customers]].forEach(function(pair) {
+      if (!pair[1]) return;
+      var mg = pair[1].margin || '?';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--sf2);border-radius:6px;margin-bottom:4px">'
+        + '<span style="font-size:12px;font-weight:600;color:var(--tx)">' + esc(pair[0]) + '</span>'
+        + '<span style="font-family:var(--mn);font-size:11px;color:var(--dm)">Rev: ' + esc(pair[1].revenue||'?') + ' · Profit: ' + esc(pair[1].profit||'?') + ' · <span style="color:var(--gn)">' + esc(mg) + '</span></span></div>';
+    });
+    h += '</div>';
+  }
+
+  if (d.optimization_tips) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Optimization Tips</div><div class="tag-list">';
+    d.optimization_tips.forEach(function(t) { h += '<span class="tag advantage">' + esc(t) + '</span>'; });
+    h += '</div></div>';
+  }
+  if (d.verdict) h += '<div style="margin-top:12px;font-size:13px;color:var(--dm);font-style:italic">' + esc(d.verdict) + '</div>';
+  return h;
+}
+
+function renderThread(d) {
+  var thread = d.thread || '';
+  var tweets = thread.split(/\n\n|\n(?=\d+\/)/);
+  var h = '';
+  tweets.forEach(function(t) {
+    t = t.trim();
+    if (!t) return;
+    h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:8px;position:relative">'
+      + '<div style="font-size:13px;color:var(--tx);line-height:1.6">' + esc(t) + '</div>'
+      + '<button class="copy-btn" onclick="copyText(this,\'' + escAttr(t) + '\')" style="position:absolute;top:8px;right:8px">Copy</button></div>';
+  });
+  return h;
+}
+
+function renderBuildPlan(d) {
+  var h = '';
+  var bp = d.blueprint || {};
+  if (bp.product_name) {
+    h += '<div style="text-align:center;margin-bottom:18px"><div style="font-size:22px;font-weight:800;color:var(--ac)">' + esc(bp.product_name) + '</div>'
+      + '<div style="font-size:13px;color:var(--dm)">' + esc(bp.tagline || '') + '</div></div>';
+  }
+  if (bp.tech_stack) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Tech Stack</div><div class="tag-list">';
+    bp.tech_stack.forEach(function(t) { h += '<span class="tag">' + esc(t) + '</span>'; });
+    h += '</div></div>';
+  }
+  if (bp.mvp_features) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">MVP Features</div>';
+    bp.mvp_features.forEach(function(f, i) {
+      h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><div style="width:20px;height:20px;border-radius:50%;background:var(--ac-dim);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;font-family:var(--mn);font-size:9px;color:var(--ac)">' + (i+1) + '</div><div style="font-size:13px;color:var(--tx)">' + esc(f) + '</div></div>';
+    });
+    h += '</div>';
+  }
+  var mvp = d.mvp_plan || {};
+  if (mvp.phases) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Build Phases (' + (mvp.total_hours||'?') + ' hours)</div>';
+    mvp.phases.forEach(function(p) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="font-weight:700;font-size:13px;color:var(--tx);margin-bottom:4px">' + esc(p.name) + ' <span style="color:var(--mt);font-weight:400">(' + (p.hours||'?') + 'h)</span></div>';
+      (p.tasks||[]).forEach(function(t) { h += '<div style="font-size:12px;color:var(--dm);padding-left:12px">• ' + esc(t) + '</div>'; });
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  var dist = d.distribution_plan || {};
+  if (dist.launch_sequence) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Launch Sequence</div>';
+    dist.launch_sequence.forEach(function(s, i) {
+      h += '<div class="step-item"><div class="step-num">' + (i+1) + '</div><div class="step-text">' + esc(s) + '</div></div>';
+    });
+    h += '</div>';
+  }
+  return h;
 }
 </script>
 </body>

@@ -311,6 +311,51 @@ Return ONLY valid JSON. Use real companies and real data."""
         return None
 
 
+# ── Claude Research: competitor & market analysis (FREE fallback for Perplexity) ──
+async def research_with_claude(idea: str) -> Optional[dict]:
+    """Use Claude's training knowledge for competitor/market research — no extra API cost."""
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        prompt = f"""You are a market research analyst. Based on your knowledge, provide detailed
+competitive and market research for this startup idea. Be specific — use real company names,
+real pricing, real market data. If you're not sure of exact numbers, give reasonable estimates
+and note they are estimates.
+
+IDEA: {idea}
+
+Return this EXACT JSON (no markdown, no backticks):
+{{
+  "competitors": [
+    {{"name": "Real company name", "url": "their website", "price": "their actual pricing", "weakness": "their main weakness you could exploit"}},
+    {{"name": "Second competitor", "url": "their website", "price": "their pricing", "weakness": "weakness"}},
+    {{"name": "Third competitor", "url": "their website", "price": "their pricing", "weakness": "weakness"}}
+  ],
+  "market_size": "Estimated total addressable market with reasoning (e.g. '$4.2B global CRM market')",
+  "growth_rate": "Annual growth rate with source reasoning",
+  "reddit_discussions": [
+    {{"subreddit": "r/relevant_sub", "title": "Typical post title people would write", "sentiment": "positive/negative/mixed", "key_quote": "A realistic quote representing common complaints"}},
+    {{"subreddit": "r/another_sub", "title": "Another common post", "sentiment": "positive/negative/mixed", "key_quote": "Another realistic quote"}}
+  ],
+  "pricing_benchmarks": [
+    {{"product": "Real product name", "price": "$X/mo", "model": "subscription/one-time/freemium"}},
+    {{"product": "Another product", "price": "$X/mo", "model": "pricing model"}},
+    {{"product": "Third product", "price": "$X/mo", "model": "pricing model"}}
+  ],
+  "key_trends": ["Specific trend 1 driving demand", "Specific trend 2", "Specific trend 3"],
+  "potential_customers": "Describe 3-4 specific customer segments actively looking for this solution",
+  "underserved_niches": ["Niche market 1 that's overlooked", "Niche market 2"],
+  "sources": ["Industry report or reasoning behind market size", "Source for growth data"]
+}}
+
+Return ONLY valid JSON. Use real companies, real products, real pricing wherever possible."""
+        raw = await _call_claude(prompt, 2500)
+        return parse_json_response(raw)
+    except Exception as e:
+        print(f"[Claude Research] {e}")
+        return None
+
+
 # ── Grok: X / social sentiment ────────────────────────
 async def scan_with_grok(idea: str) -> Optional[dict]:
     if not GROK_API_KEY:
@@ -341,6 +386,43 @@ Return ONLY valid JSON."""
         return parse_json_response(raw)
     except Exception as e:
         print(f"[Grok] {e}")
+        return None
+
+
+# ── Claude Sentiment: social analysis (FREE fallback for Grok) ──
+async def sentiment_with_claude(idea: str) -> Optional[dict]:
+    """Use Claude to analyze likely social sentiment — no Grok API needed."""
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        prompt = f"""You are a social media analyst. Analyze the likely social media conversation
+around this startup idea. Think about what people on Twitter/X, Reddit, and forums would say.
+Draw from your knowledge of real online discussions about similar products.
+
+IDEA: {idea}
+
+Return this EXACT JSON (no markdown, no backticks):
+{{
+  "buzz_level": "HIGH or MEDIUM or LOW",
+  "trend_direction": "RISING or STABLE or DECLINING",
+  "sentiment": "mostly positive, mostly negative, or mixed",
+  "sample_posts": [
+    {{"text": "Realistic example tweet or post about this problem", "engagement": "high/medium/low"}},
+    {{"text": "Another realistic post or complaint", "engagement": "high/medium/low"}},
+    {{"text": "A third perspective from social media", "engagement": "high/medium/low"}}
+  ],
+  "hashtags": ["relevant", "hashtags", "people_use"],
+  "pain_signals": ["specific complaint 1 people commonly have", "complaint 2", "complaint 3"],
+  "viral_potential": "LOW or MEDIUM or HIGH — how shareable is this concept",
+  "community_fit": ["Specific online community 1 that would love this", "Community 2"],
+  "summary": "2-3 sentence summary of the likely social conversation and reception"
+}}
+
+Return ONLY valid JSON."""
+        raw = await _call_claude(prompt, 1500)
+        return parse_json_response(raw)
+    except Exception as e:
+        print(f"[Claude Sentiment] {e}")
         return None
 
 
@@ -500,6 +582,61 @@ Return ONLY valid JSON."""
         return None
 
 
+# ── Claude Business: revenue modeling (FREE fallback for GPT-4o) ──
+async def model_with_claude(idea: str, research: Optional[dict],
+                             sentiment: Optional[dict]) -> Optional[dict]:
+    """Use Claude for business model / revenue projections — no OpenAI key needed."""
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        ctx = ""
+        if research:
+            ctx = f"""
+Market data:
+- Market size: {research.get('market_size', 'unknown')}
+- Pricing benchmarks: {json.dumps(research.get('pricing_benchmarks', []))}
+- Competitors: {json.dumps(research.get('competitors', []))}
+"""
+        prompt = f"""You are a startup business model expert. Build a realistic, detailed business
+model for this idea. Use simple language. Be specific with numbers. Be realistic — not overly
+optimistic, not pessimistic. Base projections on real SaaS/product benchmarks.
+
+IDEA: {idea}
+{ctx}
+
+Return this EXACT JSON (no markdown, no backticks):
+{{
+  "business_type": "SaaS Subscription, One-time purchase, Marketplace, Freemium, Usage-based, etc.",
+  "pricing_strategy": "Detailed pricing strategy — how to price it, why, and competitive positioning",
+  "suggested_price": "$X/mo or $X one-time",
+  "revenue_projections": {{
+    "month_1": {{"users": 10, "revenue": 290, "costs": 100}},
+    "month_3": {{"users": 80, "revenue": 2320, "costs": 300}},
+    "month_6": {{"users": 300, "revenue": 8700, "costs": 800}},
+    "month_12": {{"users": 1000, "revenue": 29000, "costs": 2000}}
+  }},
+  "breakeven_month": 3,
+  "year1_potential": "$87,000",
+  "key_risks": ["risk 1", "risk 2", "risk 3"],
+  "key_advantages": ["advantage 1", "advantage 2", "advantage 3"],
+  "monetization_tips": "2-3 sentences on how to maximize revenue — upsells, tiers, expansion revenue",
+  "funding_needed": "Bootstrappable or estimated amount needed and what it covers",
+  "unit_economics": {{
+    "cac": "Estimated customer acquisition cost",
+    "ltv": "Estimated lifetime value",
+    "ltv_cac_ratio": "LTV:CAC ratio",
+    "payback_months": 3
+  }}
+}}
+
+Return ONLY valid JSON."""
+        raw = await _call_claude(prompt, 2000)
+        return parse_json_response(raw)
+    except Exception as e:
+        print(f"[Claude Business] {e}")
+        return None
+
+
 # ─── SCORE CALCULATOR ─────────────────────────────────
 def calculate_score(a: dict) -> int:
     s = 0
@@ -615,14 +752,17 @@ async def root():
 
 @app.get("/api/health")
 def health():
+    has_claude = bool(ANTHROPIC_API_KEY)
     return {
         "status": "ok", "version": "4.0.0",
         "engines": {
-            "claude": bool(ANTHROPIC_API_KEY),
-            "perplexity": bool(PERPLEXITY_API_KEY),
-            "gpt4o": bool(OPENAI_API_KEY),
-            "grok": bool(GROK_API_KEY),
-        }
+            "claude": has_claude,
+            "perplexity": bool(PERPLEXITY_API_KEY) or has_claude,
+            "gpt4o": bool(OPENAI_API_KEY) or has_claude,
+            "grok": bool(GROK_API_KEY) or has_claude,
+        },
+        "mode": "full" if has_claude else "limited",
+        "note": "Claude powers all engines when other API keys are missing" if has_claude and not (PERPLEXITY_API_KEY and OPENAI_API_KEY and GROK_API_KEY) else None,
     }
 
 
@@ -693,14 +833,20 @@ async def analyze_idea(data: AnalyzeRequest, request: Request, response: Respons
 
             # ── Step 1: Research + Sentiment (parallel) ──────
             yield sse("step", {"ai": "perplexity", "status": "start",
-                               "label": "Searching the web for competitors & market data..."})
+                               "label": "Searching for competitors & market data..."})
             yield sse("step", {"ai": "grok", "status": "start",
-                               "label": "Scanning X for what people are saying..."})
+                               "label": "Analyzing social sentiment & buzz..."})
 
             research, sentiment = await asyncio.gather(
                 research_with_perplexity(working_idea),
                 scan_with_grok(working_idea),
             )
+
+            # Fallback to Claude for research if Perplexity unavailable
+            if not research and ANTHROPIC_API_KEY:
+                yield sse("step", {"ai": "perplexity", "status": "start",
+                                   "label": "Using Claude for market research (free)..."})
+                research = await research_with_claude(working_idea)
 
             if research:
                 n = len(research.get("competitors", []))
@@ -709,6 +855,12 @@ async def analyze_idea(data: AnalyzeRequest, request: Request, response: Respons
             else:
                 yield sse("step", {"ai": "perplexity", "status": "skipped",
                                    "summary": "No API key — skipped"})
+
+            # Fallback to Claude for sentiment if Grok unavailable
+            if not sentiment and ANTHROPIC_API_KEY:
+                yield sse("step", {"ai": "grok", "status": "start",
+                                   "label": "Using Claude for sentiment analysis (free)..."})
+                sentiment = await sentiment_with_claude(working_idea)
 
             if sentiment:
                 yield sse("step", {"ai": "grok", "status": "done",
@@ -727,6 +879,12 @@ async def analyze_idea(data: AnalyzeRequest, request: Request, response: Respons
                 analyze_with_claude(working_idea, research, sentiment),
                 model_with_gpt(working_idea, research, sentiment),
             )
+
+            # Fallback to Claude for business model if GPT unavailable
+            if not business and ANTHROPIC_API_KEY:
+                yield sse("step", {"ai": "gpt", "status": "start",
+                                   "label": "Using Claude for business modeling (free)..."})
+                business = await model_with_claude(working_idea, research, sentiment)
 
             yield sse("step", {"ai": "claude", "status": "done",
                                "summary": "Analysis complete"})
@@ -1149,6 +1307,413 @@ Format: numbered (1/5…). Each max 280 chars. Return ONLY the thread."""
     idea.twitter_thread = t
     db.commit()
     return {"idea_id": idea_id, "thread": t}
+
+
+# ═════════════════════════════════════════════════════
+#  DEEP-DIVE FEATURES (Claude-powered)
+# ═════════════════════════════════════════════════════
+
+@app.get("/api/idea/{idea_id}/pivot-suggestions")
+async def pivot_suggestions(idea_id: str, db: Session = Depends(get_db)):
+    """Generate pivot suggestions if idea is weak, or expansion ideas if strong."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    direction = "pivot away from weaknesses" if (idea.score or 0) < 60 else "expand and scale up"
+    prompt = f"""You are a startup strategy advisor. This idea scored {idea.score}/100.
+The user needs you to suggest ways to {direction}.
+
+ORIGINAL IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+SCORE: {idea.score}/100
+VERDICT: {idea.final_decision}
+
+Generate 5 creative pivot/expansion ideas. Each should be a realistic variation
+that addresses a weakness or captures a bigger opportunity.
+
+Return ONLY this JSON (no markdown):
+{{
+  "original_score": {idea.score},
+  "diagnosis": "2-3 sentences on why this idea scored the way it did",
+  "pivots": [
+    {{
+      "name": "Short catchy name for the pivot",
+      "description": "What changes from the original (2 sentences)",
+      "why_better": "Why this version is stronger (1 sentence)",
+      "difficulty": "Easy / Medium / Hard",
+      "estimated_score": 75,
+      "target_change": "New or refined target customer"
+    }}
+  ],
+  "best_pivot": "Which pivot is strongest and why (2 sentences)",
+  "common_thread": "What all good versions of this idea have in common"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2500)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/interview-script")
+async def interview_script(idea_id: str, db: Session = Depends(get_db)):
+    """Generate customer interview questions to validate the idea with real people."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    prompt = f"""You are a customer discovery expert (think "The Mom Test" by Rob Fitzpatrick).
+Generate a customer interview script for validating this startup idea.
+The questions should uncover REAL pain, not just get people to say "sounds cool."
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+PRICE: {idea.price}
+
+Return ONLY this JSON (no markdown):
+{{
+  "intro_script": "What to say when you approach the interviewee (2-3 sentences, casual)",
+  "warm_up": [
+    {{"question": "Easy opening question", "why": "What you're trying to learn"}},
+    {{"question": "Second warm-up", "why": "Purpose"}}
+  ],
+  "pain_discovery": [
+    {{"question": "Question about their current process", "why": "Understand status quo", "red_flag": "Bad answer that means no real pain", "green_flag": "Great answer that validates pain"}},
+    {{"question": "How they solve it today", "why": "Find alternatives", "red_flag": "Bad sign", "green_flag": "Good sign"}},
+    {{"question": "How much time/money they waste", "why": "Quantify pain", "red_flag": "Bad sign", "green_flag": "Good sign"}},
+    {{"question": "Last time this was a problem", "why": "Check frequency", "red_flag": "Bad sign", "green_flag": "Good sign"}},
+    {{"question": "What they've tried before", "why": "Check if actively seeking solutions", "red_flag": "Bad sign", "green_flag": "Good sign"}}
+  ],
+  "solution_validation": [
+    {{"question": "Would they pay for X", "why": "Test willingness to pay", "red_flag": "Bad answer", "green_flag": "Good answer"}},
+    {{"question": "How much would they pay", "why": "Price anchoring", "red_flag": "Bad answer", "green_flag": "Good answer"}},
+    {{"question": "Who else has this problem", "why": "Market size signal", "red_flag": "Bad answer", "green_flag": "Good answer"}}
+  ],
+  "closing": [
+    {{"question": "Can I follow up when we build this?", "why": "Get commitment"}},
+    {{"question": "Who else should I talk to?", "why": "Get referrals"}}
+  ],
+  "scoring_rubric": {{
+    "strong_signal": "What patterns mean BUILD (3+ of these)",
+    "weak_signal": "What patterns mean PIVOT",
+    "kill_signal": "What patterns mean KILL"
+  }},
+  "where_to_find_people": ["Place 1 to find target users", "Place 2", "Place 3"],
+  "sample_size": "How many interviews you need before deciding (and why)"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 3000)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/gtm-playbook")
+async def gtm_playbook(idea_id: str, db: Session = Depends(get_db)):
+    """Generate a detailed go-to-market launch playbook."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    prompt = f"""You are a growth marketing expert. Create a detailed go-to-market playbook
+for launching this startup. Be specific — include actual platforms, communities, and tactics.
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+PRICE: {idea.price}
+SCORE: {idea.score}/100
+
+Return ONLY this JSON (no markdown):
+{{
+  "launch_strategy": "Overall approach in 2-3 sentences",
+  "pre_launch": {{
+    "duration": "X days/weeks",
+    "actions": [
+      {{"day": "Day 1-3", "action": "Specific task", "channel": "Where", "goal": "What you want to achieve"}},
+      {{"day": "Day 4-7", "action": "Specific task", "channel": "Where", "goal": "Goal"}},
+      {{"day": "Week 2", "action": "Specific task", "channel": "Where", "goal": "Goal"}}
+    ],
+    "build_audience_tactics": ["Tactic 1 with specific platform", "Tactic 2", "Tactic 3"]
+  }},
+  "launch_day": {{
+    "platforms": [
+      {{"name": "Product Hunt", "strategy": "Exactly what to do", "expected_result": "What to expect"}},
+      {{"name": "Specific subreddit", "strategy": "How to post", "expected_result": "Expected outcome"}},
+      {{"name": "Twitter/X", "strategy": "Launch thread approach", "expected_result": "Expected outcome"}}
+    ],
+    "launch_post_template": "Ready-to-use launch announcement (2-3 sentences)"
+  }},
+  "first_30_days": {{
+    "week1": {{"focus": "Focus area", "actions": ["Action 1", "Action 2"]}},
+    "week2": {{"focus": "Focus area", "actions": ["Action 1", "Action 2"]}},
+    "week3_4": {{"focus": "Focus area", "actions": ["Action 1", "Action 2"]}}
+  }},
+  "growth_channels": [
+    {{"channel": "Channel name", "cost": "Free/$X", "effort": "Low/Medium/High", "timeline": "When results come", "tactics": ["Specific tactic 1", "Tactic 2"]}},
+    {{"channel": "Channel 2", "cost": "Cost", "effort": "Effort", "timeline": "Timeline", "tactics": ["Tactic 1"]}}
+  ],
+  "content_calendar": [
+    {{"type": "Blog/Video/Tweet", "topic": "Specific topic", "platform": "Where to post", "frequency": "How often"}},
+    {{"type": "Type", "topic": "Topic", "platform": "Platform", "frequency": "Frequency"}}
+  ],
+  "partnerships": ["Potential partner 1 and why", "Partner 2"],
+  "metrics_to_track": ["Metric 1", "Metric 2", "Metric 3"],
+  "budget_breakdown": {{
+    "zero_budget": "What you can do for free",
+    "small_budget": "What $100-500 gets you",
+    "growth_budget": "What $1000+ gets you"
+  }}
+}}"""
+    try:
+        raw = await _call_claude(prompt, 3500)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/swot")
+async def swot_analysis(idea_id: str, db: Session = Depends(get_db)):
+    """Generate a detailed SWOT analysis."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    comp_context = ""
+    if idea.perplexity_research and isinstance(idea.perplexity_research, dict):
+        comps = idea.perplexity_research.get("competitors", [])
+        if comps:
+            comp_context = f"\nKNOWN COMPETITORS: {json.dumps(comps)}"
+
+    prompt = f"""You are a strategy consultant. Create a thorough SWOT analysis for this startup idea.
+Be brutally honest — identify real weaknesses and threats, not just generic ones.
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+SCORE: {idea.score}/100{comp_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "strengths": [
+    {{"point": "Strength description", "impact": "HIGH/MEDIUM/LOW", "leverage": "How to maximize this"}},
+    {{"point": "Second strength", "impact": "Level", "leverage": "How to use it"}},
+    {{"point": "Third strength", "impact": "Level", "leverage": "How to use it"}}
+  ],
+  "weaknesses": [
+    {{"point": "Weakness description", "severity": "HIGH/MEDIUM/LOW", "mitigation": "How to reduce this risk"}},
+    {{"point": "Second weakness", "severity": "Level", "mitigation": "Fix"}},
+    {{"point": "Third weakness", "severity": "Level", "mitigation": "Fix"}}
+  ],
+  "opportunities": [
+    {{"point": "Opportunity description", "timeline": "Short-term/Medium-term/Long-term", "action": "How to capture it"}},
+    {{"point": "Second opportunity", "timeline": "Timeline", "action": "Action"}},
+    {{"point": "Third opportunity", "timeline": "Timeline", "action": "Action"}}
+  ],
+  "threats": [
+    {{"point": "Threat description", "likelihood": "HIGH/MEDIUM/LOW", "defense": "How to defend against it"}},
+    {{"point": "Second threat", "likelihood": "Level", "defense": "Defense"}},
+    {{"point": "Third threat", "likelihood": "Level", "defense": "Defense"}}
+  ],
+  "overall_assessment": "3-4 sentences summarizing the strategic position",
+  "top_priority": "The single most important thing to focus on based on this SWOT"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2500)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/unit-economics")
+async def unit_economics(idea_id: str, db: Session = Depends(get_db)):
+    """Generate detailed unit economics breakdown."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    biz_context = ""
+    if idea.gpt_business and isinstance(idea.gpt_business, dict):
+        biz_context = f"\nBUSINESS MODEL: {json.dumps(idea.gpt_business)}"
+
+    prompt = f"""You are a financial analyst specializing in startups. Create a detailed unit
+economics breakdown for this idea. Use realistic numbers based on industry benchmarks.
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PRICE: {idea.price}
+SCORE: {idea.score}/100{biz_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "price_per_unit": "{idea.price or '$29/mo'}",
+  "cac": {{
+    "organic": {{"cost": "$X", "channels": ["Channel 1", "Channel 2"]}},
+    "paid": {{"cost": "$X", "channels": ["Paid channel 1", "Paid channel 2"]}},
+    "blended": "$X"
+  }},
+  "ltv": {{
+    "monthly_revenue": "$X",
+    "avg_lifespan_months": 12,
+    "gross_margin_pct": 80,
+    "ltv": "$X"
+  }},
+  "ltv_cac_ratio": "X:1",
+  "payback_period": "X months",
+  "monthly_costs": {{
+    "hosting": "$X",
+    "api_costs": "$X",
+    "tools": "$X",
+    "total_fixed": "$X"
+  }},
+  "breakeven_analysis": {{
+    "monthly_costs": "$X",
+    "price_per_customer": "$X",
+    "customers_to_breakeven": 10,
+    "realistic_timeline": "X months to reach this"
+  }},
+  "scaling_economics": {{
+    "at_100_customers": {{"revenue": "$X", "costs": "$X", "profit": "$X", "margin": "X%"}},
+    "at_500_customers": {{"revenue": "$X", "costs": "$X", "profit": "$X", "margin": "X%"}},
+    "at_1000_customers": {{"revenue": "$X", "costs": "$X", "profit": "$X", "margin": "X%"}}
+  }},
+  "optimization_tips": [
+    "Specific way to reduce CAC",
+    "Way to increase LTV",
+    "Way to improve margins"
+  ],
+  "verdict": "Is this a viable business at these economics? (2-3 sentences)"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2500)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+# ═════════════════════════════════════════════════════
+#  IDEA COMPARISON
+# ═════════════════════════════════════════════════════
+class CompareRequest(BaseModel):
+    idea_ids: List[str]
+
+@app.post("/api/compare")
+async def compare_ideas(data: CompareRequest, db: Session = Depends(get_db)):
+    """Compare 2-3 validated ideas side by side with a winner recommendation."""
+    if len(data.idea_ids) < 2 or len(data.idea_ids) > 5:
+        raise HTTPException(400, "Provide 2-5 idea IDs to compare")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    ideas = []
+    for iid in data.idea_ids:
+        idea = db.query(IdeaDB).filter(IdeaDB.id == iid).first()
+        if not idea:
+            raise HTTPException(404, f"Idea '{iid}' not found")
+        ideas.append(idea)
+
+    ideas_block = "\n".join(
+        f"IDEA {i+1}: {idea.concept} | Target: {idea.target_user} | Pain: {idea.core_pain} | "
+        f"Score: {idea.score}/100 | Verdict: {idea.final_decision} | Price: {idea.price}"
+        for i, idea in enumerate(ideas)
+    )
+
+    prompt = f"""You are a startup advisor. Compare these ideas and help the user decide which to build.
+Be direct and opinionated — pick a winner.
+
+{ideas_block}
+
+Return ONLY this JSON (no markdown):
+{{
+  "comparison": [
+    {{
+      "idea": "Idea concept",
+      "score": 75,
+      "strengths": ["strength 1", "strength 2"],
+      "weaknesses": ["weakness 1", "weakness 2"],
+      "time_to_revenue": "X weeks/months",
+      "difficulty": "Easy/Medium/Hard",
+      "market_size_rank": 1
+    }}
+  ],
+  "winner": {{
+    "idea": "The winning idea concept",
+    "why": "2-3 sentences explaining why this is the best bet",
+    "confidence": 85
+  }},
+  "runner_up": {{
+    "idea": "Second best",
+    "why": "When this would be better than the winner"
+  }},
+  "avoid": {{
+    "idea": "Weakest idea",
+    "why": "Key reason to skip this one"
+  }},
+  "combo_opportunity": "Is there a way to combine 2+ of these ideas? (1-2 sentences, or 'No clear combo')"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2500)
+        result = parse_json_response(raw)
+        result["ideas_compared"] = [{"id": i.id, "concept": i.concept, "score": i.score} for i in ideas]
+        return result
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+# ═════════════════════════════════════════════════════
+#  BATCH VALIDATION
+# ═════════════════════════════════════════════════════
+class BatchRequest(BaseModel):
+    ideas: List[str]
+
+@app.post("/api/batch-validate")
+async def batch_validate(data: BatchRequest):
+    """Quick-score multiple ideas and rank them (lighter than full analysis)."""
+    if len(data.ideas) < 2 or len(data.ideas) > 10:
+        raise HTTPException(400, "Provide 2-10 ideas to batch validate")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+
+    ideas_block = "\n".join(f"{i+1}. {idea}" for i, idea in enumerate(data.ideas))
+    prompt = f"""You are a startup evaluator. Quickly score and rank these ideas.
+Be honest and direct. Score out of 100.
+
+{ideas_block}
+
+Return ONLY this JSON (no markdown):
+{{
+  "rankings": [
+    {{
+      "rank": 1,
+      "idea": "The idea text",
+      "score": 82,
+      "verdict": "BUILD or MAYBE or SKIP",
+      "one_liner": "Why in one sentence",
+      "biggest_risk": "Main risk in one sentence",
+      "time_to_mvp": "X days/weeks"
+    }}
+  ],
+  "best_idea": "Which idea to pursue first and why (2 sentences)",
+  "pattern": "What pattern you see across these ideas (1 sentence)"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2500)
+        return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
 
 
 # ═════════════════════════════════════════════════════
