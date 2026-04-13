@@ -368,6 +368,98 @@ body {
   .region-name { min-width: 80px; }
   .region-why { padding-left: 92px; }
 }
+
+/* ── PREMIUM / MONETIZATION ── */
+.discount-bar {
+  background: linear-gradient(90deg, var(--ac-dim), rgba(200,255,0,0.12));
+  border-bottom: 1px solid var(--ac-bd); padding: 8px 20px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-family: var(--mn); font-size: 11px; color: var(--ac); text-align: center;
+}
+.discount-bar strong { font-weight: 800; }
+.discount-timer { font-weight: 700; color: var(--or); }
+
+.premium-banner {
+  background: linear-gradient(135deg, rgba(200,255,0,0.06), rgba(160,120,255,0.06));
+  border: 1px solid var(--ac-bd); border-radius: 12px; padding: 20px;
+  margin-bottom: 14px; text-align: center;
+}
+.premium-banner h3 { font-size: 16px; color: var(--ac); margin-bottom: 6px; }
+.premium-banner p { font-size: 12px; color: var(--mt); margin-bottom: 14px; }
+
+.blur-preview {
+  filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.5;
+  position: relative;
+}
+.blur-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  z-index: 10; cursor: pointer;
+}
+
+.referral-card {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 14px;
+}
+.referral-card-title { font-family: var(--mn); font-size: 10px; color: var(--mt); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+.referral-code {
+  background: var(--sf2); border: 1px solid var(--ac-bd); border-radius: 8px;
+  padding: 8px 14px; font-family: var(--mn); font-size: 14px; font-weight: 700; color: var(--ac);
+  display: inline-block; margin-bottom: 8px; letter-spacing: 0.15em;
+}
+
+.timing-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-family: var(--mn); font-size: 9px;
+  text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;
+}
+.timing-badge.now { background: var(--gn-dim); color: var(--gn); border: 1px solid var(--gn-bd); }
+.timing-badge.wait { background: var(--or-dim); color: var(--or); border: 1px solid var(--or-bd); }
+
+.moat-indicator {
+  display: flex; gap: 3px; align-items: center;
+}
+.moat-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.moat-dot.filled { background: var(--ac); }
+.moat-dot.empty { background: var(--bd); }
+
+.intel-section {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 14px;
+  padding: 20px; margin-bottom: 14px;
+}
+.intel-section-title { font-family: var(--mn); font-size: 10px; color: var(--ac); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+
+/* ── UPGRADE MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: none; align-items: center; justify-content: center;
+  z-index: 500; padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 16px;
+  padding: 32px; max-width: 480px; width: 100%; position: relative;
+}
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--sf2); border: 1px solid var(--bd); border-radius: 6px;
+  width: 28px; height: 28px; cursor: pointer; color: var(--mt);
+  font-size: 14px; display: flex; align-items: center; justify-content: center;
+}
+.modal-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--mt); margin-bottom: 24px; }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.pricing-card {
+  background: var(--sf2); border: 1px solid var(--bd); border-radius: 12px;
+  padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s;
+}
+.pricing-card:hover { border-color: var(--ac-bd); }
+.pricing-card.featured { border-color: var(--ac-bd); background: var(--ac-dim); }
+.pricing-price { font-size: 24px; font-weight: 900; color: var(--ac); }
+.pricing-period { font-family: var(--mn); font-size: 9px; color: var(--mt); margin-bottom: 6px; }
+.pricing-name { font-size: 11px; font-weight: 700; color: var(--tx); margin-bottom: 4px; }
+.pricing-desc { font-family: var(--mn); font-size: 9px; color: var(--mt); }
 </style>
 </head>
 <body>
@@ -380,11 +472,56 @@ body {
   <div class="nav-links">
     <a href="/public/leaderboard">Leaderboard</a>
     <a href="/public/graveyard">Graveyard</a>
+    <a href="#" onclick="showUpgrade(); return false;" style="color:var(--ac)">Upgrade</a>
   </div>
 </header>
 
+<!-- Discount Bar -->
+<div class="discount-bar" id="discountBar">
+  <strong>🔥 LIMITED TIME:</strong> Get Pro access for <strong>$29/mo</strong> — unlimited validations + premium features.
+  Offer ends in <span class="discount-timer" id="discountTimer">15:00</span>
+  <a href="#" onclick="showUpgrade(); return false;" style="background:var(--ac);color:#000;padding:4px 12px;border-radius:6px;font-weight:700;font-size:10px;text-decoration:none;margin-left:6px">Upgrade →</a>
+</div>
+
 <div class="engines" id="engines"></div>
 <div class="toast" id="toast"></div>
+
+<!-- Upgrade Modal -->
+<div class="modal-overlay" id="upgradeModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('upgradeModal').classList.remove('show')">✕</button>
+    <div class="modal-title">🚀 Unlock Idea Factory Pro</div>
+    <div class="modal-sub">Validate unlimited ideas with all 4 AI engines + premium features</div>
+    <div class="pricing-grid">
+      <div class="pricing-card" onclick="checkout('single_report')">
+        <div class="pricing-price">$9</div>
+        <div class="pricing-period">one-time</div>
+        <div class="pricing-name">Single Report</div>
+        <div class="pricing-desc">1 premium PDF</div>
+      </div>
+      <div class="pricing-card featured" onclick="checkout('pro_monthly')">
+        <div class="pricing-price">$29</div>
+        <div class="pricing-period">/month</div>
+        <div class="pricing-name">Pro Monthly</div>
+        <div class="pricing-desc">Unlimited + API</div>
+      </div>
+      <div class="pricing-card" onclick="checkout('api_monthly')">
+        <div class="pricing-price">$49</div>
+        <div class="pricing-period">/month</div>
+        <div class="pricing-name">API Access</div>
+        <div class="pricing-desc">Programmatic</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--bd)">
+      <div style="font-family:var(--mn);font-size:10px;color:var(--mt);margin-bottom:8px">HAVE A REFERRAL CODE?</div>
+      <div style="display:flex;gap:8px">
+        <input id="referralCodeInput" type="text" placeholder="Enter code..."
+          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;color:var(--tx);font-family:var(--mn);font-size:12px;outline:none">
+        <button onclick="applyReferral()" style="background:var(--sf);border:1px solid var(--ac-bd);color:var(--ac);padding:8px 16px;border-radius:8px;cursor:pointer;font-family:var(--mn);font-size:11px;font-weight:700">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="main">
 
@@ -413,10 +550,14 @@ body {
     </div>
 
     <div class="submit-row">
-      <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+      <button class="analyze-btn" id="analyzeBtn" onclick="analyzeIdea()">
         <span id="btnText">Validate This Idea</span>
       </button>
     </div>
+    <!-- Hidden fields for v3 API compatibility & tracking -->
+    <input type="hidden" id="rawIdea" name="rawIdea" value="">
+    <input type="hidden" id="painWho" name="painWho" value="">
+    <input type="hidden" id="painQuotes" name="painQuotes" value="">
     <div class="examples-row">
       <div class="example-chip" onclick="useExample(this)">AI resume builder for non-tech people</div>
       <div class="example-chip" onclick="useExample(this)">Meal kit service for bodybuilders</div>
@@ -586,11 +727,12 @@ body {
 let currentResult = null;
 let isAnalyzing = false;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   checkEngines();
   loadHistory();
-  document.getElementById('ideaInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
+  startDiscountTimer();
+  document.getElementById('ideaInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyzeIdea(); }
   });
 });
 
@@ -600,9 +742,10 @@ async function checkEngines() {
     const d = await r.json();
     const el = document.getElementById('engines');
     const names = { claude: 'Claude', perplexity: 'Perplexity', gpt4o: 'GPT-4o', grok: 'Grok' };
-    el.innerHTML = Object.entries(d.engines || {}).map(([k, v]) =>
-      `<div class="engine"><div class="engine-dot ${v ? 'on' : 'off'}"></div>${esc(names[k] || k)}</div>`
-    ).join('');
+    el.innerHTML = Object.entries(d.engines || {}).map(function(entry) {
+      const k = entry[0]; const v = entry[1];
+      return '<div class="engine"><div class="engine-dot ' + (v ? 'on' : 'off') + '"></div>' + esc(names[k] || k) + '</div>';
+    }).join('');
   } catch(e) {}
 }
 
@@ -613,27 +756,29 @@ function useExample(el) {
 
 let currentMode = 'validate';
 function setMode(el) {
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
   el.classList.add('active');
   currentMode = el.dataset.mode;
 }
+
+function analyzeIdea() { analyze(); }
+function displayResults(r) { renderResults(r); }
 
 async function analyze() {
   const idea = document.getElementById('ideaInput').value.trim();
   if (!idea || isAnalyzing) return;
   isAnalyzing = true;
+  document.getElementById('rawIdea').value = idea;
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
   document.getElementById('btnText').textContent = 'Analyzing...';
   document.getElementById('pipeline').classList.add('show');
   document.getElementById('results').classList.remove('show');
 
-  // Reset pipeline steps
-  ['perplexity','grok','claude','gpt'].forEach(ai => {
+  ['perplexity','grok','claude','gpt'].forEach(function(ai) {
     document.getElementById('pipe-' + ai).className = 'pipe-step';
     document.getElementById('pipe-' + ai + '-badge').textContent = 'Waiting';
   });
-  // Show/hide mode step
   const modeStep = document.getElementById('pipe-mode');
   if (currentMode !== 'validate') {
     modeStep.style.display = 'flex';
@@ -649,20 +794,28 @@ async function analyze() {
     const resp = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idea, mode: currentMode })
+      body: JSON.stringify({ idea: idea, mode: currentMode })
     });
+    if (!resp.ok) {
+      const err = await resp.json().catch(function() { return {}; });
+      if (resp.status === 429) { showUpgrade(); toast(err.detail || 'Limit reached. Upgrade for unlimited!'); }
+      else { toast(err.detail || 'Analysis failed. Please try again.'); }
+      isAnalyzing = false; btn.disabled = false;
+      document.getElementById('btnText').textContent = 'Validate This Idea';
+      return;
+    }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      const res = await reader.read();
+      if (res.done) break;
+      buffer += decoder.decode(res.value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try { handleSSE(JSON.parse(line.slice(6))); } catch(e) {}
+      for (let idx = 0; idx < lines.length; idx++) {
+        if (!lines[idx].startsWith('data: ')) continue;
+        try { handleSSE(JSON.parse(lines[idx].slice(6))); } catch(e) {}
       }
     }
   } catch(e) {
@@ -676,25 +829,24 @@ async function analyze() {
 
 function handleSSE(evt) {
   if (evt.type === 'step') {
-    const aiMap = { perplexity: 'perplexity', grok: 'grok', claude: 'claude', gpt: 'gpt', mode: 'mode' };
-    const key = aiMap[evt.ai];
+    const key = evt.ai;
     if (!key) return;
     const el = document.getElementById('pipe-' + key);
-    const label = document.getElementById('pipe-' + key + '-label');
+    const labelEl = document.getElementById('pipe-' + key + '-label');
     const badge = document.getElementById('pipe-' + key + '-badge');
     if (!el) return;
     if (evt.status === 'start') {
       el.className = key === 'mode' ? 'pipe-step mode-transform active' : 'pipe-step active';
-      label.textContent = evt.label || 'Working...';
-      badge.textContent = 'Running';
+      if (labelEl) { labelEl.textContent = evt.label || 'Working...'; }
+      if (badge) { badge.textContent = 'Running'; }
     } else if (evt.status === 'done') {
       el.className = key === 'mode' ? 'pipe-step mode-transform done' : 'pipe-step done';
-      label.textContent = evt.summary || 'Done';
-      badge.textContent = 'Done';
+      if (labelEl) { labelEl.textContent = evt.summary || 'Done'; }
+      if (badge) { badge.textContent = 'Done'; }
     } else if (evt.status === 'skipped') {
       el.className = 'pipe-step skipped';
-      label.textContent = evt.summary || 'Skipped';
-      badge.textContent = 'Skipped';
+      if (labelEl) { labelEl.textContent = evt.summary || 'Skipped'; }
+      if (badge) { badge.textContent = 'Skipped'; }
     }
   } else if (evt.type === 'result') {
     currentResult = evt;
@@ -707,18 +859,16 @@ function handleSSE(evt) {
 function renderResults(r) {
   document.getElementById('results').classList.add('show');
 
-  // Score ring
   const score = r.score || 0;
   const sColor = score >= 70 ? 'var(--gn)' : score >= 40 ? 'var(--or)' : 'var(--rd)';
   const arc = document.getElementById('scoreArc');
   const circ = 2 * Math.PI * 70;
   arc.style.stroke = sColor;
   arc.setAttribute('stroke-dasharray', circ);
-  setTimeout(() => { arc.style.strokeDashoffset = circ - (circ * score / 100); }, 100);
+  setTimeout(function() { arc.style.strokeDashoffset = circ - (circ * score / 100); }, 100);
   document.getElementById('scoreNum').textContent = score;
   document.getElementById('scoreNum').style.color = sColor;
 
-  // Verdict
   const verdict = (r.verdict || 'MAYBE').toUpperCase();
   const vb = document.getElementById('verdictBadge');
   vb.textContent = verdict === 'BUILD' ? 'BUILD IT' : verdict === 'SKIP' ? 'SKIP' : 'MAYBE';
@@ -726,7 +876,6 @@ function renderResults(r) {
   document.getElementById('verdictConcept').textContent = r.concept || '';
   document.getElementById('verdictSummary').textContent = r.summary || '';
 
-  // Mode remix banner
   let remixEl = document.getElementById('modeRemixBanner');
   if (!remixEl) {
     remixEl = document.createElement('div');
@@ -740,146 +889,269 @@ function renderResults(r) {
     remixEl.style.display = 'block';
     remixEl.style.border = '1px solid ' + (r.mode === 'trendy' ? 'var(--or-bd)' : 'rgba(192,132,252,0.3)');
     remixEl.style.background = r.mode === 'trendy' ? 'var(--or-dim)' : 'rgba(192,132,252,0.08)';
-    remixEl.innerHTML = `<span style="color:${mColor};font-weight:700">${mLabel}</span><br>`
-      + `<span style="color:var(--mt)">Your idea:</span> ${esc(r.original_idea)}<br>`
-      + `<span style="color:${mColor}">Remixed:</span> ${esc(r.idea)}`;
+    remixEl.innerHTML = '<span style="color:' + mColor + ';font-weight:700">' + mLabel + '</span><br>'
+      + '<span style="color:var(--mt)">Your idea:</span> ' + esc(r.original_idea) + '<br>'
+      + '<span style="color:' + mColor + '">Remixed:</span> ' + esc(r.idea);
   } else {
     remixEl.style.display = 'none';
   }
 
-  // AI Sources
-  const srcs = (r.ai_sources || []).map(s => s.toUpperCase()).join(' + ');
+  const srcs = (r.ai_sources || []).map(function(s) { return s.toUpperCase(); }).join(' + ');
   document.getElementById('aiSources').textContent = srcs ? 'Powered by: ' + srcs : '';
 
-  // 4 Scores
   const scores = r.scores || {};
   const scoreNames = { pain: 'Pain Level', market: 'Market Size', execution: 'Ease of Building', timing: 'Timing' };
-  document.getElementById('scoresGrid').innerHTML = Object.entries(scoreNames).map(([k, label]) => {
+  document.getElementById('scoresGrid').innerHTML = Object.entries(scoreNames).map(function(entry) {
+    const k = entry[0]; const label = entry[1];
     const v = scores[k] || 0;
     const c = v >= 70 ? 'var(--gn)' : v >= 40 ? 'var(--or)' : 'var(--rd)';
-    return `<div><div class="score-lbl"><span>${esc(label)}</span><span style="color:${c};font-weight:600">${v}/100</span></div><div class="score-bar"><div class="score-bar-fill" style="width:${v}%;background:${c}"></div></div></div>`;
+    return '<div><div class="score-lbl"><span>' + esc(label) + '</span><span style="color:' + c + ';font-weight:600">' + v + '/100</span></div><div class="score-bar"><div class="score-bar-fill" style="width:' + v + '%;background:' + c + '"></div></div></div>';
   }).join('');
 
-  // Gates
   const gates = r.gates || {};
   const gateNames = { build_fast: 'Can you build it fast?', will_pay: 'Will people pay?', urgent_pain: 'Is the pain urgent?' };
-  document.getElementById('gatesGrid').innerHTML = Object.entries(gateNames).map(([k, q]) => {
+  document.getElementById('gatesGrid').innerHTML = Object.entries(gateNames).map(function(entry) {
+    const k = entry[0]; const q = entry[1];
     const g = gates[k] || {};
     const yes = (g.answer || '').toUpperCase().startsWith('YES');
-    return `<div class="gate ${yes ? 'pass' : 'fail'}"><div class="gate-q">${esc(q)}</div><div class="gate-v">${yes ? 'YES' : 'NO'}</div><div class="gate-r">${esc(g.reasoning || '')}</div></div>`;
+    return '<div class="gate ' + (yes ? 'pass' : 'fail') + '"><div class="gate-q">' + esc(q) + '</div><div class="gate-v">' + (yes ? 'YES' : 'NO') + '</div><div class="gate-r">' + esc(g.reasoning || '') + '</div></div>';
   }).join('');
 
-  // About
   const about = [['Who Needs This', r.who_needs_this || r.target_user], ['Biggest Problem', r.core_pain], ['What They Get', r.value_promise], ['Why Now', r.why_now]];
-  document.getElementById('aboutGrid').innerHTML = about.map(([l, v]) =>
-    `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px">${esc(l)}</div><div style="font-size:13px;line-height:1.55">${esc(v || '')}</div></div>`
-  ).join('');
+  document.getElementById('aboutGrid').innerHTML = about.map(function(pair) {
+    return '<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px">' + esc(pair[0]) + '</div><div style="font-size:13px;line-height:1.55">' + esc(pair[1] || '') + '</div></div>';
+  }).join('');
 
-  // Timing & Moat
   const timing = r.timing_analysis || {};
   const moat = r.moat_analysis || {};
   const readyC = timing.readiness === 'NOW' ? 'var(--gn)' : 'var(--or)';
   const moatC = moat.defensibility === 'HIGH' ? 'var(--gn)' : moat.defensibility === 'MEDIUM' ? 'var(--or)' : 'var(--rd)';
-  document.getElementById('timingMoatGrid').innerHTML = `
-    <div class="info-card"><div class="info-card-title">When To Launch</div><div class="info-val" style="color:${readyC}">${esc(timing.readiness || 'NOW')}</div><div class="info-sub">${esc(timing.reasoning || '')}</div>${timing.trigger_event ? `<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Trigger: ${esc(timing.trigger_event)}</div>` : ''}</div>
-    <div class="info-card"><div class="info-card-title">How Easy To Copy</div><div class="info-val" style="color:${moatC}">${esc(moat.defensibility || 'LOW')}</div><div class="info-sub">${esc(moat.reasoning || '')}</div>${moat.moat_type && moat.moat_type !== 'None' ? `<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Moat: ${esc(moat.moat_type)} · ~${moat.copy_time_days || '?'} days to copy</div>` : ''}</div>`;
+  let tmHTML = '<div class="info-card"><div class="info-card-title">When To Launch</div>'
+    + '<div class="info-val" style="color:' + readyC + '">' + esc(timing.readiness || 'NOW') + '</div>'
+    + '<div class="info-sub">' + esc(timing.reasoning || '') + '</div>';
+  if (timing.trigger_event) { tmHTML += '<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Trigger: ' + esc(timing.trigger_event) + '</div>'; }
+  tmHTML += '</div><div class="info-card"><div class="info-card-title">How Easy To Copy</div>'
+    + '<div class="info-val" style="color:' + moatC + '">' + esc(moat.defensibility || 'LOW') + '</div>'
+    + '<div class="info-sub">' + esc(moat.reasoning || '') + '</div>';
+  if (moat.moat_type && moat.moat_type !== 'None') { tmHTML += '<div style="margin-top:8px;font-family:var(--mn);font-size:10px;color:var(--ac)">Moat: ' + esc(moat.moat_type) + ' ~ ' + (moat.copy_time_days || '?') + ' days to copy</div>'; }
+  tmHTML += '</div>';
+  document.getElementById('timingMoatGrid').innerHTML = tmHTML;
 
-  // Regions
   const regions = r.regional_scores || [];
   const regionBody = document.getElementById('regionBody');
   if (regions.length) {
-    regionBody.innerHTML = regions.map(reg => {
+    regionBody.innerHTML = regions.map(function(reg) {
       const d = reg.demand || 0;
       const c = d >= 70 ? 'var(--gn)' : d >= 40 ? 'var(--or)' : 'var(--rd)';
-      return `<div class="region-row"><div class="region-name">${esc(reg.region)}</div><div class="region-bar"><div class="region-bar-fill" style="width:${d}%;background:${c}"><span class="region-bar-num">${d}</span></div></div></div>${reg.reasoning ? `<div class="region-why">${esc(reg.reasoning)}</div>` : ''}`;
+      let html = '<div class="region-row"><div class="region-name">' + esc(reg.region) + '</div><div class="region-bar"><div class="region-bar-fill" style="width:' + d + '%;background:' + c + '"><span class="region-bar-num">' + d + '</span></div></div></div>';
+      if (reg.reasoning) { html += '<div class="region-why">' + esc(reg.reasoning) + '</div>'; }
+      return html;
     }).join('');
   } else {
     regionBody.innerHTML = '<div style="color:var(--mt);font-size:12px;text-align:center">No regional data</div>';
   }
 
-  // Competitors
   const research = r.research || {};
   const comps = research.competitors || [];
   const compCard = document.getElementById('compCard');
   if (comps.length) {
     compCard.style.display = '';
-    document.getElementById('compBody').innerHTML = `<table class="comp-table"><tr><th>Name</th><th>Price</th><th>Weakness</th></tr>${comps.map(c => `<tr><td>${esc(c.name || '?')}</td><td>${esc(c.price || '?')}</td><td>${esc(c.weakness || '?')}</td></tr>`).join('')}</table>${research.market_size ? `<div style="margin-top:14px;font-size:12px;color:var(--dm)"><strong style="color:var(--ac)">Market size:</strong> ${esc(research.market_size)}</div>` : ''}${(research.key_trends || []).length ? `<div style="margin-top:8px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Key Trends</div><div class="tag-list">${research.key_trends.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>` : ''}`;
+    let compHTML = '<table class="comp-table"><tr><th>Name</th><th>Price</th><th>Weakness</th></tr>';
+    comps.forEach(function(c) {
+      compHTML += '<tr><td>' + esc(c.name || '?') + '</td><td>' + esc(c.price || '?') + '</td><td>' + esc(c.weakness || '?') + '</td></tr>';
+    });
+    compHTML += '</table>';
+    if (research.market_size) { compHTML += '<div style="margin-top:14px;font-size:12px;color:var(--dm)"><strong style="color:var(--ac)">Market size:</strong> ' + esc(research.market_size) + '</div>'; }
+    if ((research.key_trends || []).length) {
+      compHTML += '<div style="margin-top:8px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Key Trends</div><div class="tag-list">';
+      research.key_trends.forEach(function(t) { compHTML += '<span class="tag">' + esc(t) + '</span>'; });
+      compHTML += '</div></div>';
+    }
+    document.getElementById('compBody').innerHTML = compHTML;
   } else { compCard.style.display = 'none'; }
 
-  // Social Buzz
   const buzz = r.social_buzz || {};
   const buzzCard = document.getElementById('buzzCard');
   if (buzz.buzz_level) {
     buzzCard.style.display = '';
     const buzzC = buzz.buzz_level === 'HIGH' ? 'var(--gn)' : buzz.buzz_level === 'MEDIUM' ? 'var(--or)' : 'var(--rd)';
-    let html = `<div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap"><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Buzz</div><div class="info-val" style="color:${buzzC}">${esc(buzz.buzz_level)}</div></div><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Trend</div><div class="info-val" style="color:${buzz.trend_direction === 'RISING' ? 'var(--gn)' : 'var(--or)'}">${esc(buzz.trend_direction || '?')}</div></div><div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Sentiment</div><div class="info-val" style="font-size:14px">${esc(buzz.sentiment || '?')}</div></div></div>`;
-    if (buzz.summary) html += `<div style="font-size:13px;color:var(--dm);margin-bottom:14px;line-height:1.55">${esc(buzz.summary)}</div>`;
-    (buzz.sample_posts || []).forEach(p => { html += `<div class="buzz-item"><div class="buzz-text">"${esc(p.text)}"</div><div class="buzz-meta">Engagement: ${esc(p.engagement)}</div></div>`; });
+    const trendC = buzz.trend_direction === 'RISING' ? 'var(--gn)' : 'var(--or)';
+    let html = '<div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">'
+      + '<div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Buzz</div><div class="info-val" style="color:' + buzzC + '">' + esc(buzz.buzz_level) + '</div></div>'
+      + '<div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Trend</div><div class="info-val" style="color:' + trendC + '">' + esc(buzz.trend_direction || '?') + '</div></div>'
+      + '<div class="info-card" style="flex:1;min-width:120px"><div class="info-card-title">Sentiment</div><div class="info-val" style="font-size:14px">' + esc(buzz.sentiment || '?') + '</div></div>'
+      + '</div>';
+    if (buzz.summary) { html += '<div style="font-size:13px;color:var(--dm);margin-bottom:14px;line-height:1.55">' + esc(buzz.summary) + '</div>'; }
+    (buzz.sample_posts || []).forEach(function(p) { html += '<div class="buzz-item"><div class="buzz-text">"' + esc(p.text) + '"</div><div class="buzz-meta">Engagement: ' + esc(p.engagement) + '</div></div>'; });
     const pains = buzz.pain_signals || [];
-    if (pains.length) html += `<div style="margin-top:10px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Pain Signals</div><div class="tag-list">${pains.map(p => `<span class="tag risk">${esc(p)}</span>`).join('')}</div></div>`;
+    if (pains.length) {
+      html += '<div style="margin-top:10px"><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Pain Signals</div><div class="tag-list">';
+      pains.forEach(function(p) { html += '<span class="tag risk">' + esc(p) + '</span>'; });
+      html += '</div></div>';
+    }
     document.getElementById('buzzBody').innerHTML = html;
   } else { buzzCard.style.display = 'none'; }
 
-  // Business Model
   const biz = r.business_model || {};
   const bizCard = document.getElementById('bizCard');
   if (biz.business_type) {
     bizCard.style.display = '';
-    let html = `<div class="biz-grid"><div class="biz-card"><div class="biz-val">${esc(biz.suggested_price || '?')}</div><div class="biz-lbl">Price</div></div><div class="biz-card"><div class="biz-val">${esc(biz.year1_potential || '?')}</div><div class="biz-lbl">Year 1 Potential</div></div><div class="biz-card"><div class="biz-val">Month ${biz.breakeven_month || '?'}</div><div class="biz-lbl">Break Even</div></div></div>`;
-    html += `<div style="margin-top:14px"><div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Type:</strong> ${esc(biz.business_type)}</div><div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Strategy:</strong> ${esc(biz.pricing_strategy || '')}</div>`;
-    if (biz.monetization_tips) html += `<div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Tip:</strong> ${esc(biz.monetization_tips)}</div>`;
-    if (biz.funding_needed) html += `<div style="font-size:13px;color:var(--dm)"><strong style="color:var(--tx)">Funding:</strong> ${esc(biz.funding_needed)}</div>`;
+    let html = '<div class="biz-grid">'
+      + '<div class="biz-card"><div class="biz-val">' + esc(biz.suggested_price || '?') + '</div><div class="biz-lbl">Price</div></div>'
+      + '<div class="biz-card"><div class="biz-val">' + esc(biz.year1_potential || '?') + '</div><div class="biz-lbl">Year 1 Potential</div></div>'
+      + '<div class="biz-card"><div class="biz-val">Month ' + (biz.breakeven_month || '?') + '</div><div class="biz-lbl">Break Even</div></div>'
+      + '</div>';
+    html += '<div style="margin-top:14px">'
+      + '<div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Type:</strong> ' + esc(biz.business_type) + '</div>'
+      + '<div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Strategy:</strong> ' + esc(biz.pricing_strategy || '') + '</div>';
+    if (biz.monetization_tips) { html += '<div style="font-size:13px;color:var(--dm);margin-bottom:6px"><strong style="color:var(--tx)">Tip:</strong> ' + esc(biz.monetization_tips) + '</div>'; }
+    if (biz.funding_needed) { html += '<div style="font-size:13px;color:var(--dm)"><strong style="color:var(--tx)">Funding:</strong> ' + esc(biz.funding_needed) + '</div>'; }
     html += '</div>';
     const advs = biz.key_advantages || []; const risks = biz.key_risks || [];
     if (advs.length || risks.length) {
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">';
-      if (advs.length) html += `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Advantages</div><div class="tag-list">${advs.map(a => `<span class="tag advantage">${esc(a)}</span>`).join('')}</div></div>`;
-      if (risks.length) html += `<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Risks</div><div class="tag-list">${risks.map(r => `<span class="tag risk">${esc(r)}</span>`).join('')}</div></div>`;
+      if (advs.length) {
+        html += '<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Advantages</div><div class="tag-list">';
+        advs.forEach(function(a) { html += '<span class="tag advantage">' + esc(a) + '</span>'; });
+        html += '</div></div>';
+      }
+      if (risks.length) {
+        html += '<div><div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;margin-bottom:5px">Risks</div><div class="tag-list">';
+        risks.forEach(function(rk) { html += '<span class="tag risk">' + esc(rk) + '</span>'; });
+        html += '</div></div>';
+      }
       html += '</div>';
     }
     document.getElementById('bizBody').innerHTML = html;
   } else { bizCard.style.display = 'none'; }
 
-  // Revenue Chart
   const rev = biz.revenue_projections;
   const revCard = document.getElementById('revCard');
   if (rev) {
     revCard.style.display = '';
-    const months = [{ l: 'M1', d: rev.month_1 }, { l: 'M3', d: rev.month_3 }, { l: 'M6', d: rev.month_6 }, { l: 'M12', d: rev.month_12 }].filter(m => m.d);
-    const maxR = Math.max(...months.map(m => m.d.revenue || 0), 1);
-    document.getElementById('revBody').innerHTML = `<div class="rev-chart">${months.map(m => {
+    const months = [{ l: 'M1', d: rev.month_1 }, { l: 'M3', d: rev.month_3 }, { l: 'M6', d: rev.month_6 }, { l: 'M12', d: rev.month_12 }].filter(function(m) { return m.d; });
+    const maxR = Math.max.apply(null, months.map(function(m) { return m.d.revenue || 0; }).concat([1]));
+    let revHTML = '<div class="rev-chart">';
+    months.forEach(function(m) {
       const rH = Math.max((m.d.revenue / maxR) * 100, 5);
       const cH = Math.max(((m.d.costs || 0) / maxR) * 100, 3);
-      return `<div class="rev-bar-wrap"><div class="rev-val">$${(m.d.revenue || 0).toLocaleString()}</div><div class="rev-bar revenue" style="height:${rH}%"></div><div class="rev-bar costs" style="height:${cH}%"></div><div class="rev-label">${m.l}</div></div>`;
-    }).join('')}</div><div style="display:flex;gap:16px;justify-content:center;margin-top:10px"><span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--ac);border-radius:2px;margin-right:4px"></span>Revenue</span><span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--rd);opacity:0.6;border-radius:2px;margin-right:4px"></span>Costs</span></div>`;
+      revHTML += '<div class="rev-bar-wrap"><div class="rev-val">$' + (m.d.revenue || 0).toLocaleString() + '</div><div class="rev-bar revenue" style="height:' + rH + '%"></div><div class="rev-bar costs" style="height:' + cH + '%"></div><div class="rev-label">' + m.l + '</div></div>';
+    });
+    revHTML += '</div><div style="display:flex;gap:16px;justify-content:center;margin-top:10px">'
+      + '<span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--ac);border-radius:2px;margin-right:4px"></span>Revenue</span>'
+      + '<span style="font-family:var(--mn);font-size:9px;color:var(--mt)"><span style="display:inline-block;width:8px;height:8px;background:var(--rd);opacity:0.6;border-radius:2px;margin-right:4px"></span>Costs</span>'
+      + '</div>';
+    document.getElementById('revBody').innerHTML = revHTML;
   } else { revCard.style.display = 'none'; }
 
-  // Next Steps
   const steps = r.next_steps || [];
-  document.getElementById('stepsList').innerHTML = steps.map((s, i) =>
-    `<div class="step-item"><div class="step-num">${i + 1}</div><div class="step-text">${esc(s)}</div></div>`
-  ).join('') || '<div style="color:var(--mt);font-size:12px">No steps generated</div>';
+  document.getElementById('stepsList').innerHTML = steps.map(function(s, i) {
+    return '<div class="step-item"><div class="step-num">' + (i + 1) + '</div><div class="step-text">' + esc(s) + '</div></div>';
+  }).join('') || '<div style="color:var(--mt);font-size:12px">No steps generated</div>';
 
-  // Content
   const content = r.content || {};
-  const pieces = [['Tweet', content.tweet], ['Reddit Post', content.reddit], ['One-Line Pitch', content.pitch], ['Offer', content.offer], ['Price Point', content.price], ['Call to Action', content.cta]].filter(([, v]) => v);
-  document.getElementById('contentGrid').innerHTML = pieces.map(([l, v]) =>
-    `<div class="content-box"><button class="copy-btn" onclick="copyText(this,'${escAttr(v)}')">Copy</button><div class="content-lbl">${esc(l)}</div><div class="content-val">${esc(v)}</div></div>`
-  ).join('');
+  const pieces = [['Tweet', content.tweet], ['Reddit Post', content.reddit], ['One-Line Pitch', content.pitch], ['Offer', content.offer], ['Price Point', content.price], ['Call to Action', content.cta]].filter(function(pair) { return pair[1]; });
+  document.getElementById('contentGrid').innerHTML = pieces.map(function(pair) {
+    const l = pair[0]; const v = pair[1];
+    return '<div class="content-box"><button class="copy-btn" onclick="copyText(this,\'' + escAttr(v) + '\')">Copy</button><div class="content-lbl">' + esc(l) + '</div><div class="content-val">' + esc(v) + '</div></div>';
+  }).join('');
 
-  // Actions
+  renderMarketIntel(r);
+
   const id = r.id || '';
-  document.getElementById('actionsBar').innerHTML = `
-    <a class="act-btn primary" href="/api/idea/${encodeURIComponent(id)}/pdf" target="_blank">Download PDF</a>
-    <button class="act-btn outline" onclick="copyText(this,'${escAttr(r.share_url || '')}')">Copy Share Link</button>
-    <button class="act-btn outline" onclick="getBuildPlan('${escAttr(id)}')">Build Plan</button>
-    <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>`;
+  document.getElementById('actionsBar').innerHTML =
+    '<a class="act-btn primary" href="/api/idea/' + encodeURIComponent(id) + '/pdf" target="_blank">Download PDF</a>'
+    + ' <button class="act-btn outline" onclick="copyText(this,\'' + escAttr(r.share_url || '') + '\')">Copy Share Link</button>'
+    + ' <button class="act-btn outline" onclick="getBuildPlan(\'' + escAttr(id) + '\')">Build Plan</button>'
+    + ' <button class="act-btn outline" onclick="showUpgrade()">Go Pro</button>'
+    + ' <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>';
 
   loadHistory();
   document.getElementById('scoreHero').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── Helpers ──
+function renderMarketIntel(r) {
+  let intelEl = document.getElementById('marketIntelSection');
+  if (!intelEl) {
+    intelEl = document.createElement('div');
+    intelEl.id = 'marketIntelSection';
+    intelEl.className = 'intel-section';
+    const stepsCard = document.getElementById('stepsCard');
+    if (stepsCard) { stepsCard.before(intelEl); }
+  }
+  const timing = r.timing_analysis || {};
+  const moat = r.moat_analysis || {};
+  const readyNow = (timing.readiness || '').toUpperCase() === 'NOW';
+  const moatLevel = (moat.defensibility || 'LOW').toUpperCase();
+  const moatDotsFilled = moatLevel === 'HIGH' ? 3 : moatLevel === 'MEDIUM' ? 2 : 1;
+  let dotsHTML = '';
+  for (let i = 0; i < 3; i++) { dotsHTML += '<div class="moat-dot ' + (i < moatDotsFilled ? 'filled' : 'empty') + '"></div>'; }
+
+  intelEl.innerHTML = '<div class="intel-section-title">Market Intelligence</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
+    + '<span class="timing-badge ' + (readyNow ? 'now' : 'wait') + '">' + esc(timing.readiness || 'NOW') + '</span>'
+    + '<span style="font-size:11px;color:var(--mt)">Launch timing</span>'
+    + '<div class="moat-indicator" style="margin-left:10px">' + dotsHTML + '</div>'
+    + '<span style="font-size:11px;color:var(--mt)">Moat: ' + esc(moatLevel) + '</span>'
+    + '</div>';
+}
+
+function showUpgrade() {
+  document.getElementById('upgradeModal').classList.add('show');
+}
+
+function unlockPremium(ideaId) {
+  showUpgrade();
+}
+
+async function checkout(productType, ideaId) {
+  try {
+    const body = { product_type: productType };
+    if (ideaId) { body.idea_id = ideaId; }
+    const r = await fetch('/api/checkout/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (r.ok && d.url) { window.location.href = d.url; }
+    else { toast(d.detail || 'Payment not configured yet. Contact the admin.'); }
+  } catch(e) { toast('Payment unavailable. Please try again later.'); }
+}
+
+async function applyReferral() {
+  const inp = document.getElementById('referralCodeInput');
+  const code = inp ? inp.value.trim().toUpperCase() : '';
+  if (!code) { toast('Please enter a referral code'); return; }
+  try {
+    const r = await fetch('/api/referral/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    });
+    const d = await r.json();
+    if (r.ok) { toast('Referral applied! You got 1 bonus validation.'); if (inp) { inp.value = ''; } }
+    else { toast(d.detail || 'Invalid referral code'); }
+  } catch(e) { toast('Could not apply referral code'); }
+}
+
+function startDiscountTimer() {
+  const timerEl = document.getElementById('discountTimer');
+  if (!timerEl) return;
+  let stored = localStorage.getItem('discountStart');
+  if (!stored) { stored = Date.now().toString(); localStorage.setItem('discountStart', stored); }
+  let seconds = Math.max(0, 15 * 60 - Math.floor((Date.now() - parseInt(stored)) / 1000));
+  function tick() {
+    if (seconds <= 0) { timerEl.textContent = '00:00'; return; }
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    timerEl.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    seconds--;
+    setTimeout(tick, 1000);
+  }
+  tick();
+}
+
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
@@ -896,14 +1168,14 @@ function copyText(btn, text) {
   btn.textContent = 'Copied!';
   btn.style.borderColor = 'var(--gn)';
   btn.style.color = 'var(--gn)';
-  setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
+  setTimeout(function() { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
 }
 
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
+  setTimeout(function() { el.classList.remove('show'); }, 3000);
 }
 
 function newIdea() {
@@ -911,7 +1183,7 @@ function newIdea() {
   document.getElementById('ideaInput').value = '';
   document.getElementById('pipeline').classList.remove('show');
   document.getElementById('results').classList.remove('show');
-  ['compCard','buzzCard','bizCard','revCard'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  ['compCard','buzzCard','bizCard','revCard'].forEach(function(id) { document.getElementById(id).style.display = 'none'; });
   document.getElementById('ideaInput').focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -922,13 +1194,13 @@ async function loadHistory() {
     const ideas = await r.json();
     const el = document.getElementById('historyList');
     if (!ideas.length) { el.innerHTML = '<div style="font-family:var(--mn);font-size:11px;color:var(--mt);text-align:center;padding:14px">No ideas yet. Submit one above!</div>'; return; }
-    el.innerHTML = ideas.slice(0, 10).map(i => {
+    el.innerHTML = ideas.slice(0, 10).map(function(i) {
       const v = (i.verdict || 'MAYBE').toUpperCase();
       const vc = v.includes('BUILD') ? 'build' : v.includes('SKIP') || v.includes('KILL') ? 'skip' : 'maybe';
       const sc = i.score || 0;
       const scC = sc >= 70 ? 'var(--gn)' : sc >= 40 ? 'var(--or)' : 'var(--rd)';
       const url = i.share_url || '#';
-      return `<div class="history-item" onclick="window.location.href='${escAttr(url)}'"><div class="history-score" style="color:${scC}">${sc}</div><div class="history-info"><div class="history-concept">${esc(i.concept || 'Untitled')}</div><div class="history-meta">${esc(i.category || 'Other')} · ${i.date ? new Date(i.date).toLocaleDateString() : ''}</div></div><div class="history-verdict ${vc}">${esc(v)}</div></div>`;
+      return '<div class="history-item" onclick="window.location.href=\'' + escAttr(url) + '\'"><div class="history-score" style="color:' + scC + '">' + sc + '</div><div class="history-info"><div class="history-concept">' + esc(i.concept || 'Untitled') + '</div><div class="history-meta">' + esc(i.category || 'Other') + ' · ' + (i.date ? new Date(i.date).toLocaleDateString() : '') + '</div></div><div class="history-verdict ' + vc + '">' + esc(v) + '</div></div>';
     }).join('');
   } catch(e) {}
 }

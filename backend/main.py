@@ -7,7 +7,7 @@ Pipeline:
   Step 2 (parallel): Claude (deep analysis) + GPT-4o (business model)
   Step 3: Combine → Score → Save
 
-STACK: FastAPI + SQLite + Anthropic + OpenAI + Perplexity + Grok
+STACK: FastAPI + SQLite + Anthropic + OpenAI + Perplexity + Grok + Stripe
 """
 
 import os
@@ -19,14 +19,14 @@ import re
 import asyncio
 import traceback
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 
 import anthropic
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Query, Request, Header
+from fastapi import FastAPI, HTTPException, Depends, Query, Request, Header, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, Text, func, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -48,6 +48,29 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
+
+# Stripe / Monetization
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_PRO_MONTHLY = os.getenv("STRIPE_PRICE_PRO_MONTHLY", "")
+STRIPE_PRICE_API_MONTHLY = os.getenv("STRIPE_PRICE_API_MONTHLY", "")
+FREE_TIER_LIMIT = int(os.getenv("FREE_TIER_LIMIT", "3"))
+
+# Stripe client (optional)
+try:
+    import stripe as _stripe_module
+    _stripe_key = STRIPE_SECRET_KEY
+    if _stripe_key and not _stripe_key.startswith("sk_test_placeholder") and len(_stripe_key) > 20:
+        _stripe_module.api_key = _stripe_key
+        STRIPE_ENABLED = True
+    else:
+        STRIPE_ENABLED = False
+except ImportError:
+    _stripe_module = None
+    STRIPE_ENABLED = False
+
+# API access keys registry (populated via admin)
+_API_KEYS: dict = {}  # key → {"user": str, "is_pro": bool}
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
@@ -130,10 +153,31 @@ class EmailCaptureDB(Base):
     tags = Column(String, nullable=True)
 
 
+class UserSessionDB(Base):
+    __tablename__ = "user_sessions"
+    session_id = Column(String, primary_key=True, index=True)
+    ip = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+    validations_count = Column(Integer, default=0)
+    is_pro = Column(Boolean, default=False)
+    stripe_customer_id = Column(String, nullable=True)
+    referral_code = Column(String, unique=True, nullable=True, index=True)
+    referred_by = Column(String, nullable=True)
+    referral_credits = Column(Integer, default=0)
+
+
 Base.metadata.create_all(bind=engine)
 
 # Safe migration: add new columns to existing DBs
-_MIGRATE = [("perplexity_research", "TEXT"), ("grok_sentiment", "TEXT"), ("gpt_business", "TEXT")]
+_MIGRATE = [
+    ("perplexity_research", "TEXT"), ("grok_sentiment", "TEXT"), ("gpt_business", "TEXT"),
+    ("user_id", "TEXT"), ("email", "TEXT"), ("twitter_thread", "TEXT"),
+    ("countdown_start", "TIMESTAMP"), ("repo_url", "TEXT"),
+    ("is_premium_report", "INTEGER DEFAULT 0"),
+    ("blueprint", "TEXT"), ("landing_page_html", "TEXT"),
+    ("revenue_sim", "TEXT"), ("mvp_plan", "TEXT"), ("distribution_plan", "TEXT"),
+]
 with engine.connect() as _conn:
     for _col, _type in _MIGRATE:
         try:
@@ -147,6 +191,19 @@ with engine.connect() as _conn:
 class IdeaInput(BaseModel):
     idea: str
     mode: str = "validate"  # validate, trendy, wild
+
+class AnalyzeRequest(BaseModel):
+    idea: str  # Required (use raw_idea as alias handled below)
+    mode: str = "validate"
+    email: Optional[str] = None
+    pain: Optional[dict] = None
+
+class ReferralInput(BaseModel):
+    code: str
+
+class CheckoutInput(BaseModel):
+    product_type: str  # pro_monthly, single_report, api_monthly
+    idea_id: Optional[str] = None
 
 class SignalUpdate(BaseModel):
     idea_id: str
@@ -171,6 +228,35 @@ def check_admin(x_admin_secret: str = Header(None)):
     if not x_admin_secret or x_admin_secret != ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return True
+
+
+# ─── SESSION HELPERS ──────────────────────────────────
+def _get_or_create_session(request: Request, db: Session) -> UserSessionDB:
+    """Get or create a user session from cookie. Returns (session, is_new)."""
+    sid = request.cookies.get("session_id")
+    if sid:
+        sess = db.query(UserSessionDB).filter(UserSessionDB.session_id == sid).first()
+        if sess:
+            sess.last_seen = datetime.utcnow()
+            db.commit()
+            return sess
+    # Create new session
+    new_sid = secrets.token_urlsafe(24)
+    ip = (request.client.host if request.client else "unknown")
+    ref_code = secrets.token_urlsafe(6).upper()
+    sess = UserSessionDB(session_id=new_sid, ip=ip, referral_code=ref_code)
+    db.add(sess)
+    db.commit()
+    db.refresh(sess)
+    return sess
+
+def _check_api_key(x_api_key: str = Header(None)):
+    """Validate API key for programmatic access."""
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="API key required")
+    if x_api_key not in _API_KEYS:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return _API_KEYS[x_api_key]
 
 
 # ─── SSE HELPER ───────────────────────────────────────
@@ -367,7 +453,11 @@ Return this EXACT JSON (no markdown, no backticks):
   "regional_scores": [
     {{"region": "North America", "demand": 85, "reasoning": "Why"}},
     {{"region": "Europe", "demand": 60, "reasoning": "Why"}},
-    {{"region": "Asia-Pacific", "demand": 40, "reasoning": "Why"}}
+    {{"region": "Latin America", "demand": 50, "reasoning": "Why"}},
+    {{"region": "Asia-Pacific", "demand": 40, "reasoning": "Why"}},
+    {{"region": "South Asia", "demand": 55, "reasoning": "Why"}},
+    {{"region": "Middle East & Africa", "demand": 35, "reasoning": "Why"}},
+    {{"region": "Southeast Asia", "demand": 45, "reasoning": "Why"}}
   ],
   "timing_analysis": {{
     "readiness": "NOW or WAIT_3_MONTHS or WAIT_6_MONTHS",
@@ -535,7 +625,7 @@ app = FastAPI(title="Idea Factory", version="4.0.0",
               description="Multi-AI idea validation — personal tool")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[BASE_URL, "http://localhost:3000", "http://localhost:8000"],
+    allow_origins=["*"],
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -599,15 +689,24 @@ Return ONLY the wild remix as 1-2 sentences. No explanation. No labels. Just the
 
 
 @app.post("/api/analyze")
-async def analyze_idea(request: Request):
+async def analyze_idea(data: AnalyzeRequest, request: Request, response: Response):
     """Multi-AI analysis streamed via Server-Sent Events."""
-    body = await request.json()
-    idea_text = body.get("idea", "").strip()
-    mode = body.get("mode", "validate").strip().lower()
+    idea_text = (data.idea or "").strip()
+    mode = (data.mode or "validate").strip().lower()
     if mode not in ("validate", "trendy", "wild"):
         mode = "validate"
     if not idea_text:
         raise HTTPException(400, "Tell me your idea — even a rough sentence works")
+
+    # Rate limit: track per session
+    db_rate = SessionLocal()
+    try:
+        sess = _get_or_create_session(request, db_rate)
+        if not sess.is_pro and sess.validations_count >= FREE_TIER_LIMIT:
+            raise HTTPException(429, f"Free tier limit reached ({FREE_TIER_LIMIT} validations). Upgrade to Pro for unlimited access.")
+        response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+    finally:
+        db_rate.close()
 
     async def stream():
         original_idea = idea_text
@@ -720,6 +819,12 @@ async def analyze_idea(request: Request):
                     stats.week += 1
                 else:
                     db.add(StatsDB(validated=1, week=1))
+                # Increment session validation count
+                sid = request.cookies.get("session_id")
+                if sid:
+                    user_sess = db.query(UserSessionDB).filter(UserSessionDB.session_id == sid).first()
+                    if user_sess:
+                        user_sess.validations_count += 1
                 db.commit()
             except Exception:
                 traceback.print_exc()
@@ -775,9 +880,20 @@ async def get_stats(db: Session = Depends(get_db)):
     total = db.query(func.count(IdeaDB.id)).scalar() or 0
     avg = db.query(func.avg(IdeaDB.score)).scalar() or 0
     top = db.query(func.max(IdeaDB.score)).scalar() or 0
-    return {"validated": s.validated if s else 0, "built": s.built if s else 0,
-            "killed": s.killed if s else 0, "week": s.week if s else 0,
-            "total_ideas": total, "avg_score": round(avg), "top_score": top}
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today_start).scalar() or 0
+    total_upgrades = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    return {
+        "validated": s.validated if s else 0,
+        "built": s.built if s else 0,
+        "killed": s.killed if s else 0,
+        "week": s.week if s else 0,
+        "total_ideas": total,
+        "avg_score": round(avg),
+        "top_score": top,
+        "ideas_today": ideas_today,
+        "total_upgrades": total_upgrades,
+    }
 
 
 @app.post("/api/decision/{idea_id}")
@@ -1076,8 +1192,34 @@ async def admin_dashboard(admin: bool = Depends(check_admin), db: Session = Depe
     avg = db.query(func.avg(IdeaDB.score)).scalar() or 0
     builds = db.query(func.count(IdeaDB.id)).filter(IdeaDB.final_decision.ilike("%BUILD%")).scalar() or 0
     top = db.query(IdeaDB).order_by(IdeaDB.score.desc()).limit(5).all()
-    return {"total_ideas": total, "avg_score": round(avg), "builds": builds,
-            "top_ideas": [{"id": i.id, "concept": i.concept, "score": i.score} for i in top]}
+    pro_users = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    emails = db.query(func.count(EmailCaptureDB.id)).scalar() or 0
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today_start).scalar() or 0
+    return {
+        "total_ideas": total,
+        "avg_score": round(avg),
+        "builds": builds,
+        "top_ideas": [{"id": i.id, "concept": i.concept, "score": i.score} for i in top],
+        "overview": {
+            "total_ideas": total,
+            "avg_score": round(avg),
+            "builds": builds,
+            "pro_users": pro_users,
+            "emails_captured": emails,
+            "ideas_today": ideas_today,
+        },
+        "revenue": {
+            "pro_users": pro_users,
+            "mrr_estimate": pro_users * 29,
+            "total_upgrades": pro_users,
+        },
+        "next_actions": [
+            f"You have {emails} emails captured — consider sending a newsletter",
+            f"{builds} ideas marked BUILD — follow up with users",
+            f"Average score is {round(avg)}/100 — {'strong pipeline' if avg >= 60 else 'needs more ideas'}",
+        ],
+    }
 
 
 @app.post("/api/cron/auto-rank")
@@ -1092,7 +1234,7 @@ async def auto_rank(admin: bool = Depends(check_admin), db: Session = Depends(ge
             i.final_decision = new
             updated += 1
     db.commit()
-    return {"checked": len(ideas), "updated": updated}
+    return {"checked": len(ideas), "updated": updated, "ideas_checked": len(ideas)}
 
 
 # ═════════════════════════════════════════════════════
@@ -1254,6 +1396,396 @@ async def trends(db: Session = Depends(get_db)):
         "categories": [{"name": c[0], "count": c[1], "avg_score": round(c[2] or 0)} for c in cats if c[0]],
         "decisions": [{"decision": d[0], "count": d[1]} for d in decs if d[0]],
         "total_ideas": total,
+    }
+
+
+# ═════════════════════════════════════════════════════
+#  USER SESSION & STATUS
+# ═════════════════════════════════════════════════════
+@app.get("/api/user/status")
+async def user_status(request: Request, response: Response, db: Session = Depends(get_db)):
+    sess = _get_or_create_session(request, db)
+    remaining = max(0, FREE_TIER_LIMIT - sess.validations_count) if not sess.is_pro else 999
+    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+    return {
+        "is_pro": sess.is_pro,
+        "validations_this_month": sess.validations_count,
+        "validations_limit": FREE_TIER_LIMIT if not sess.is_pro else 999,
+        "validations_remaining": remaining,
+        "referral_code": sess.referral_code,
+        "referral_credits": sess.referral_credits,
+        "is_first_session": sess.validations_count == 0,
+    }
+
+
+# ═════════════════════════════════════════════════════
+#  REFERRAL SYSTEM
+# ═════════════════════════════════════════════════════
+@app.post("/api/referral/apply")
+async def apply_referral(data: ReferralInput, request: Request, response: Response,
+                          db: Session = Depends(get_db)):
+    if not data.code:
+        raise HTTPException(400, "Referral code required")
+    # Find the referrer
+    referrer = db.query(UserSessionDB).filter(
+        UserSessionDB.referral_code == data.code.upper()
+    ).first()
+    if not referrer:
+        raise HTTPException(404, "Referral code not found")
+    sess = _get_or_create_session(request, db)
+    if sess.referred_by:
+        raise HTTPException(400, "You have already applied a referral code")
+    if sess.session_id == referrer.session_id:
+        raise HTTPException(400, "You cannot use your own referral code")
+    # Grant credits to both
+    sess.referred_by = data.code.upper()
+    sess.referral_credits += 1
+    referrer.referral_credits += 1
+    db.commit()
+    response.set_cookie("session_id", sess.session_id, max_age=86400 * 365, httponly=True, samesite="lax")
+    return {"status": "applied", "credits_granted": 1, "referrer_credited": True}
+
+
+# ═════════════════════════════════════════════════════
+#  STRIPE CHECKOUT
+# ═════════════════════════════════════════════════════
+_PRODUCT_PRICES = {
+    "pro_monthly": {"price": STRIPE_PRICE_PRO_MONTHLY, "amount": 2900, "label": "Pro Monthly"},
+    "single_report": {"price": None, "amount": 900, "label": "Single Premium Report"},
+    "api_monthly": {"price": STRIPE_PRICE_API_MONTHLY, "amount": 4900, "label": "API Access Monthly"},
+}
+
+@app.post("/api/checkout/create-session")
+async def create_checkout_session(data: CheckoutInput, request: Request, db: Session = Depends(get_db)):
+    if not STRIPE_ENABLED or not _stripe_module:
+        raise HTTPException(503, "Payment processing not configured. Contact the admin.")
+    product = _PRODUCT_PRICES.get(data.product_type)
+    if not product:
+        raise HTTPException(400, f"Unknown product type: {data.product_type}")
+    sess = _get_or_create_session(request, db)
+    try:
+        success_url = f"{BASE_URL}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}&type={data.product_type}"
+        cancel_url = f"{BASE_URL}/checkout/cancel"
+        if data.product_type == "single_report":
+            # One-time payment
+            checkout = _stripe_module.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{"price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": product["label"]},
+                    "unit_amount": product["amount"],
+                }, "quantity": 1}],
+                mode="payment",
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata={"session_id": sess.session_id, "product_type": data.product_type,
+                           "idea_id": data.idea_id or ""},
+            )
+        else:
+            # Subscription
+            if not product["price"]:
+                raise HTTPException(503, f"Price ID for {data.product_type} not configured")
+            checkout = _stripe_module.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{"price": product["price"], "quantity": 1}],
+                mode="subscription",
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata={"session_id": sess.session_id, "product_type": data.product_type},
+            )
+        return {"url": checkout.url, "session_id": checkout.id}
+    except Exception as e:
+        raise HTTPException(503, f"Payment error: {e}")
+
+
+@app.get("/checkout/success", response_class=HTMLResponse)
+async def checkout_success(request: Request, db: Session = Depends(get_db),
+                            type: str = Query("pro_monthly")):
+    sess = _get_or_create_session(request, db)
+    # Mark as pro
+    sess.is_pro = True
+    db.commit()
+    label = _PRODUCT_PRICES.get(type, {}).get("label", "your plan")
+    return HTMLResponse(f"""{_html_head("Payment Successful", "Welcome to Idea Factory Pro")}
+<body><div class="ctr" style="text-align:center;padding-top:60px">
+<div style="font-size:52px">🎉</div>
+<h1 style="color:var(--ac);margin-top:16px">Payment Successful!</h1>
+<p style="color:var(--mt);font-family:var(--mn);margin-top:8px">You now have access to {label}</p>
+<a class="btn" href="/" style="display:inline-block;margin-top:24px">Start Validating Ideas →</a>
+</div></body></html>""")
+
+
+@app.get("/checkout/cancel", response_class=HTMLResponse)
+async def checkout_cancel():
+    return HTMLResponse(f"""{_html_head("Payment Cancelled", "No charge was made")}
+<body><div class="ctr" style="text-align:center;padding-top:60px">
+<div style="font-size:52px">😕</div>
+<h1 style="margin-top:16px">Payment Cancelled</h1>
+<p style="color:var(--mt);font-family:var(--mn);margin-top:8px">No charge was made. You can try again anytime.</p>
+<a class="btn" href="/" style="display:inline-block;margin-top:24px">Back to Idea Factory</a>
+</div></body></html>""")
+
+
+@app.post("/api/checkout/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    payload = await request.body()
+    if not payload:
+        raise HTTPException(400, "Empty webhook body")
+    sig = request.headers.get("stripe-signature", "")
+    if not STRIPE_ENABLED or not _stripe_module:
+        raise HTTPException(503, "Stripe not configured")
+    try:
+        if STRIPE_WEBHOOK_SECRET:
+            event = _stripe_module.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        else:
+            event = json.loads(payload)
+    except Exception as e:
+        raise HTTPException(400, f"Webhook error: {e}")
+
+    if event.get("type") in ("checkout.session.completed", "invoice.payment_succeeded"):
+        obj = event.get("data", {}).get("object", {})
+        meta = obj.get("metadata", {})
+        sid = meta.get("session_id")
+        if sid:
+            sess = db.query(UserSessionDB).filter(UserSessionDB.session_id == sid).first()
+            if sess:
+                sess.is_pro = True
+                sess.stripe_customer_id = obj.get("customer", "")
+                db.commit()
+    return {"status": "ok"}
+
+
+# ═════════════════════════════════════════════════════
+#  ADMIN — EMAILS & DIGEST
+# ═════════════════════════════════════════════════════
+@app.get("/api/emails")
+async def list_emails(admin: bool = Depends(check_admin), db: Session = Depends(get_db)):
+    emails = db.query(EmailCaptureDB).order_by(EmailCaptureDB.captured_at.desc()).limit(500).all()
+    return [{"id": e.id, "email": e.email, "source": e.source,
+             "captured_at": e.captured_at.isoformat() if e.captured_at else None,
+             "idea_id": e.idea_id, "tags": e.tags} for e in emails]
+
+
+@app.get("/api/admin/daily-digest")
+async def daily_digest(admin: bool = Depends(check_admin), db: Session = Depends(get_db)):
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    ideas_today = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= today).scalar() or 0
+    total = db.query(func.count(IdeaDB.id)).scalar() or 0
+    builds = db.query(func.count(IdeaDB.id)).filter(IdeaDB.final_decision.ilike("%BUILD%")).scalar() or 0
+    pro_users = db.query(func.count(UserSessionDB.session_id)).filter(UserSessionDB.is_pro == True).scalar() or 0
+    return {
+        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "three_numbers": {
+            "ideas_today": ideas_today,
+            "total_ideas": total,
+            "pro_users": pro_users,
+        },
+        "builds": builds,
+        "mrr": pro_users * 29,
+        "summary": f"{ideas_today} ideas validated today. {builds} marked BUILD. {pro_users} pro users (${pro_users * 29}/mo MRR).",
+    }
+
+
+# ═════════════════════════════════════════════════════
+#  CRON ENDPOINTS
+# ═════════════════════════════════════════════════════
+@app.post("/api/cron/weekly-summary")
+async def weekly_summary(admin: bool = Depends(check_admin), db: Session = Depends(get_db)):
+    week_start = datetime.utcnow() - timedelta(days=7)
+    ideas_week = db.query(func.count(IdeaDB.id)).filter(IdeaDB.date >= week_start).scalar() or 0
+    builds = db.query(func.count(IdeaDB.id)).filter(
+        IdeaDB.final_decision.ilike("%BUILD%"), IdeaDB.date >= week_start).scalar() or 0
+    avg = db.query(func.avg(IdeaDB.score)).filter(IdeaDB.date >= week_start).scalar() or 0
+    return {
+        "week": ideas_week, "builds": builds, "avg_score": round(avg),
+        "summary": f"Week: {ideas_week} ideas, {builds} BUILD-worthy, avg score {round(avg)}"
+    }
+
+
+@app.post("/api/cron/generate-ideas")
+async def generate_ideas(admin: bool = Depends(check_admin), db: Session = Depends(get_db)):
+    """Auto-generate trending startup ideas using Claude."""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(500, "ANTHROPIC_API_KEY not set")
+    prompt = """Generate 5 trending startup ideas based on current market opportunities.
+Focus on AI, sustainability, remote work, health tech, and fintech.
+Return JSON: {"ideas": ["idea 1", "idea 2", "idea 3", "idea 4", "idea 5"]}
+Return ONLY valid JSON."""
+    try:
+        raw = await _call_claude(prompt, 500)
+        data = parse_json_response(raw)
+        return {"generated": data.get("ideas", []), "count": len(data.get("ideas", []))}
+    except Exception as e:
+        raise HTTPException(500, f"Generation failed: {e}")
+
+
+@app.post("/api/cron/ready-to-post")
+async def ready_to_post(admin: bool = Depends(check_admin), db: Session = Depends(get_db)):
+    """Return ideas with content ready to post (high score + content generated)."""
+    ideas = db.query(IdeaDB).filter(
+        IdeaDB.score >= 70,
+        IdeaDB.x_post.isnot(None),
+    ).order_by(IdeaDB.score.desc()).limit(10).all()
+    return {
+        "ready": [{"id": i.id, "concept": i.concept, "score": i.score,
+                   "tweet": i.x_post, "reddit": i.reddit} for i in ideas],
+        "count": len(ideas)
+    }
+
+
+# ═════════════════════════════════════════════════════
+#  API ACCESS (v1 key-based)
+# ═════════════════════════════════════════════════════
+@app.post("/api/v1/validate")
+async def api_validate(request: Request, api_user: dict = Depends(_check_api_key)):
+    """Programmatic API access for validated API key holders."""
+    body = await request.json()
+    idea_text = (body.get("idea") or body.get("raw_idea") or "").strip()
+    if not idea_text:
+        raise HTTPException(400, "idea field required")
+    # Simplified sync analysis for API users
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    research, sentiment = await asyncio.gather(
+        research_with_perplexity(idea_text),
+        scan_with_grok(idea_text),
+    )
+    analysis = await analyze_with_claude(idea_text, research, sentiment)
+    business = await model_with_gpt(idea_text, research, sentiment)
+    idea_id = str(uuid.uuid4())[:8]
+    share_token = secrets.token_urlsafe(12)
+    score = calculate_score(analysis)
+    result = combine_results(idea_text, analysis, research, sentiment, business,
+                             idea_id, share_token, score)
+    db = SessionLocal()
+    try:
+        db.add(IdeaDB(
+            id=idea_id, raw_idea=idea_text,
+            concept=analysis.get("concept", ""),
+            target_user=analysis.get("target_user", ""),
+            core_pain=analysis.get("core_pain", ""),
+            value_promise=analysis.get("value_promise", ""),
+            g1=analysis.get("gate1", {}).get("question", ""),
+            g1r=f"{analysis.get('gate1', {}).get('answer', '')} — {analysis.get('gate1', {}).get('reasoning', '')}",
+            g2=analysis.get("gate2", {}).get("question", ""),
+            g2r=f"{analysis.get('gate2', {}).get('answer', '')} — {analysis.get('gate2', {}).get('reasoning', '')}",
+            g3=analysis.get("gate3", {}).get("question", ""),
+            g3r=f"{analysis.get('gate3', {}).get('answer', '')} — {analysis.get('gate3', {}).get('reasoning', '')}",
+            reddit=analysis.get("reddit_post", ""),
+            x_post=analysis.get("x_post", ""),
+            offer=analysis.get("offer", ""),
+            price=analysis.get("price", ""),
+            cta=analysis.get("cta", ""),
+            final_decision=analysis.get("final_decision", "MAYBE"),
+            score=score, ai_response=result,
+            is_public=True, share_token=share_token,
+            category=analysis.get("category", "Other"),
+            regional_scores=analysis.get("regional_scores"),
+            timing_analysis=analysis.get("timing_analysis"),
+            moat_analysis=analysis.get("moat_analysis"),
+            perplexity_research=research, grok_sentiment=sentiment, gpt_business=business,
+        ))
+        db.commit()
+    finally:
+        db.close()
+    return result
+
+
+# ═════════════════════════════════════════════════════
+#  BRAINSTORMING (ludo.ai inspired)
+# ═════════════════════════════════════════════════════
+@app.get("/api/brainstorm")
+async def brainstorm(
+    seed: str = Query(..., description="A topic, problem, or industry to brainstorm around"),
+    style: str = Query("diverse", description="diverse, adjacent, disruptive"),
+    db: Session = Depends(get_db),
+):
+    """Generate a set of related startup ideas from a seed concept."""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    style_desc = {
+        "diverse": "a variety of different approaches across multiple business models",
+        "adjacent": "ideas adjacent to the seed that share the same customer or problem",
+        "disruptive": "bold, contrarian takes that flip the existing market on its head",
+    }.get(style, "diverse set of ideas")
+    prompt = f"""You are a startup idea generator. Generate 6 startup ideas based on this seed.
+Generate {style_desc}.
+
+SEED: {seed}
+
+Return ONLY this JSON (no markdown):
+{{
+  "theme": "1-sentence description of the opportunity space",
+  "ideas": [
+    {{
+      "title": "Short catchy name",
+      "tagline": "One-line description (max 15 words)",
+      "target": "Who it's for",
+      "pain": "Pain it solves",
+      "model": "How it makes money",
+      "difficulty": "Easy / Medium / Hard to build",
+      "score_estimate": 75
+    }}
+  ],
+  "market_signals": ["signal 1", "signal 2", "signal 3"],
+  "best_opportunity": "Which idea seems strongest and why (1-2 sentences)"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 2000)
+        data = parse_json_response(raw)
+        return {"seed": seed, "style": style, **data}
+    except Exception as e:
+        raise HTTPException(500, f"Brainstorm failed: {e}")
+
+
+# ═════════════════════════════════════════════════════
+#  MARKET INSIGHT
+# ═════════════════════════════════════════════════════
+@app.get("/api/market-insight")
+async def market_insight(
+    category: str = Query(..., description="Category to analyze (e.g. SaaS, Marketplace, AI Tool)"),
+    db: Session = Depends(get_db),
+):
+    """Get market intelligence for a category from existing validated ideas."""
+    ideas = db.query(IdeaDB).filter(
+        IdeaDB.category.ilike(f"%{category}%"), IdeaDB.score > 0
+    ).order_by(IdeaDB.score.desc()).limit(50).all()
+
+    total = len(ideas)
+    if not total:
+        return {"category": category, "total_ideas": 0, "message": "No validated ideas in this category yet"}
+
+    avg_score = round(sum(i.score for i in ideas) / total)
+    builds = sum(1 for i in ideas if i.final_decision and "BUILD" in i.final_decision.upper())
+    top_ideas = [{"concept": i.concept, "score": i.score, "verdict": i.final_decision}
+                 for i in ideas[:5]]
+
+    # Regional demand aggregation
+    region_totals: dict = {}
+    region_counts: dict = {}
+    for idea in ideas:
+        regions = idea.regional_scores or []
+        if isinstance(regions, list):
+            for r in regions:
+                name = r.get("region", "")
+                demand = r.get("demand", 0)
+                if name:
+                    region_totals[name] = region_totals.get(name, 0) + demand
+                    region_counts[name] = region_counts.get(name, 0) + 1
+    regional_avg = [
+        {"region": r, "avg_demand": round(region_totals[r] / region_counts[r])}
+        for r in region_totals
+    ]
+    regional_avg.sort(key=lambda x: x["avg_demand"], reverse=True)
+
+    return {
+        "category": category,
+        "total_ideas": total,
+        "avg_score": avg_score,
+        "build_rate": round(builds / total * 100),
+        "top_ideas": top_ideas,
+        "regional_demand": regional_avg,
+        "insight": f"{category} has {total} validated ideas with avg score {avg_score}. {builds} ({round(builds/total*100)}%) are BUILD-worthy.",
     }
 
 
