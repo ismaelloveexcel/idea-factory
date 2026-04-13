@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Idea Factory — Backend Connected</title>
+<title>Idea Factory — AI-Powered Idea Validation</title>
+<meta name="description" content="Validate your startup idea in 30 seconds with AI. Get a validation score, pre-sell content, and a shareable report.">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -16,6 +17,8 @@
   --accent: #c8ff00;
   --green: #00e87a;
   --red: #ff3b3b;
+  --orange: #ff9f1c;
+  --blue: #4ea8de;
   --font: 'Syne', sans-serif;
   --mono: 'JetBrains Mono', monospace;
 }
@@ -30,24 +33,16 @@ body {
   padding: 20px;
 }
 
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-}
+.container { max-width: 900px; margin: 0 auto; }
 
 .header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
 
-h1 {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--accent);
-  margin-bottom: 10px;
-}
+h1 { font-size: 32px; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
 
 .subtitle {
   font-family: var(--mono);
@@ -57,9 +52,18 @@ h1 {
   letter-spacing: 0.2em;
 }
 
+.nav-links {
+  display: flex; gap: 16px; justify-content: center; margin-top: 12px;
+}
+.nav-links a {
+  font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+  text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em;
+}
+.nav-links a:hover { color: var(--accent); }
+
 .status-badge {
   display: inline-block;
-  margin-top: 15px;
+  margin-top: 12px;
   padding: 6px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -69,15 +73,20 @@ h1 {
   color: var(--text-muted);
 }
 
-.status-badge.connected {
-  border-color: var(--green);
-  color: var(--green);
-}
+.status-badge.connected { border-color: var(--green); color: var(--green); }
+.status-badge.error { border-color: var(--red); color: var(--red); }
 
-.status-badge.error {
-  border-color: var(--red);
-  color: var(--red);
+/* Stats bar */
+.stats-bar {
+  display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
 }
+.stat-item {
+  flex: 1; min-width: 100px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 8px;
+}
+.stat-num { font-size: 22px; font-weight: 800; color: var(--accent); }
+.stat-label { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
 
 .section {
   background: var(--surface);
@@ -88,247 +97,162 @@ h1 {
 }
 
 .section-title {
-  font-family: var(--mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-  margin-bottom: 16px;
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 16px;
 }
 
-.form-group {
-  margin-bottom: 16px;
-}
+.form-group { margin-bottom: 16px; }
 
 label {
-  display: block;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
+  display: block; font-family: var(--mono); font-size: 10px;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.1em; margin-bottom: 8px;
 }
 
 input, textarea {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 12px;
-  border-radius: 8px;
-  font-family: var(--font);
-  font-size: 14px;
-  outline: none;
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 12px; border-radius: 8px;
+  font-family: var(--font); font-size: 14px; outline: none;
   transition: border-color 0.2s;
 }
 
-input:focus, textarea:focus {
-  border-color: var(--accent);
-}
+input:focus, textarea:focus { border-color: var(--accent); }
 
 textarea {
-  resize: vertical;
-  min-height: 100px;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.6;
+  resize: vertical; min-height: 100px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.6;
 }
 
 .btn {
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  padding: 14px 28px;
-  border-radius: 8px;
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-  width: 100%;
+  background: var(--accent); color: var(--bg); border: none;
+  padding: 14px 28px; border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  cursor: pointer; transition: transform 0.2s, opacity 0.2s; width: 100%;
 }
 
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
+.btn:hover:not(:disabled) { transform: translateY(-2px); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn:active:not(:disabled) {
-  transform: translateY(0);
+.btn-secondary {
+  background: transparent; border: 1px solid var(--accent);
+  color: var(--accent); padding: 10px 18px; border-radius: 8px;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  cursor: pointer; text-decoration: none; display: inline-block;
 }
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.btn-secondary:hover { background: rgba(200,255,0,0.08); }
 
 .loading {
-  text-align: center;
-  padding: 20px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--accent);
+  text-align: center; padding: 20px;
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
 }
 
-.result {
-  margin-top: 20px;
-}
-
+/* Results */
 .result-item {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 12px;
 }
 
 .result-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
 }
 
-.result-value {
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--text);
-}
+.result-value { font-size: 15px; line-height: 1.5; color: var(--text); }
 
+/* Score display */
+.score-display {
+  text-align: center; padding: 20px; margin-bottom: 20px;
+}
+.score-number { font-size: 64px; font-weight: 800; }
+.score-bar { height: 8px; background: var(--border); border-radius: 4px; margin: 10px auto; max-width: 300px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+
+/* Decision */
 .decision {
-  text-align: center;
-  padding: 24px;
-  margin-top: 20px;
-  border: 2px solid var(--border);
-  border-radius: 12px;
+  text-align: center; padding: 24px; margin-top: 20px;
+  border: 2px solid var(--border); border-radius: 12px;
 }
-
-.decision.build {
-  border-color: var(--green);
-  background: rgba(0, 232, 122, 0.05);
-}
-
-.decision.kill {
-  border-color: var(--red);
-  background: rgba(255, 59, 59, 0.05);
-}
-
-.decision.test {
-  border-color: var(--accent);
-  background: rgba(200, 255, 0, 0.05);
-}
-
-.decision-text {
-  font-size: 24px;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
+.decision.build { border-color: var(--green); background: rgba(0,232,122,0.05); }
+.decision.kill { border-color: var(--red); background: rgba(255,59,59,0.05); }
+.decision.test { border-color: var(--accent); background: rgba(200,255,0,0.05); }
+.decision-text { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
 .decision.build .decision-text { color: var(--green); }
 .decision.kill .decision-text { color: var(--red); }
 .decision.test .decision-text { color: var(--accent); }
 
-.toast {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-family: var(--mono);
-  font-size: 12px;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.3s;
-  pointer-events: none;
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.gate-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
+/* Gates */
+.gate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
 .gate-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  text-align: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; text-align: center;
 }
-
-.gate-card.pass {
-  border-color: var(--green);
-  background: rgba(0, 232, 122, 0.05);
-}
-
-.gate-card.fail {
-  border-color: var(--red);
-  background: rgba(255, 59, 59, 0.05);
-}
-
-.gate-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-}
-
-.gate-result {
-  font-size: 18px;
-  font-weight: 800;
-  margin-bottom: 6px;
-}
-
+.gate-card.pass { border-color: var(--green); background: rgba(0,232,122,0.05); }
+.gate-card.fail { border-color: var(--red); background: rgba(255,59,59,0.05); }
+.gate-label { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+.gate-result { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
 .gate-card.pass .gate-result { color: var(--green); }
 .gate-card.fail .gate-result { color: var(--red); }
+.gate-reason { font-size: 12px; line-height: 1.4; color: var(--text-muted); }
 
-.gate-reason {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-.presell-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
+/* Presell */
+.presell-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .presell-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px;
+}
+.presell-label { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+.presell-content { font-size: 13px; line-height: 1.5; color: var(--text); font-family: var(--mono); }
+
+/* Share bar */
+.share-bar {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px;
+}
+.share-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 8px 14px; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; cursor: pointer; text-decoration: none;
+  transition: all 0.2s;
+}
+.share-btn:hover { border-color: var(--accent); color: var(--accent); }
+.share-btn.highlight { border-color: var(--accent); color: var(--accent); }
+
+/* Twitter thread */
+.thread-box {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-top: 16px; white-space: pre-wrap;
+  font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  max-height: 400px; overflow-y: auto;
 }
 
-.presell-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
+/* Email capture */
+.email-section {
+  background: rgba(200,255,0,0.03); border: 1px solid var(--accent);
+  border-radius: 14px; padding: 20px; text-align: center; margin-top: 20px;
 }
+.email-row {
+  display: flex; gap: 10px; max-width: 400px; margin: 12px auto 0;
+}
+.email-row input { flex: 1; }
+.email-row .btn { width: auto; }
 
-.presell-content {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text);
-  font-family: var(--mono);
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 12px 20px; border-radius: 8px;
+  font-family: var(--mono); font-size: 12px;
+  opacity: 0; transform: translateY(20px);
+  transition: all 0.3s; pointer-events: none; z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 600px) {
+  .gate-grid { grid-template-columns: 1fr; }
+  .presell-grid { grid-template-columns: 1fr; }
+  .stats-bar { gap: 8px; }
+  .stat-item { min-width: 70px; padding: 8px 4px; }
 }
 </style>
 </head>
@@ -337,13 +261,27 @@ textarea {
 <div class="container">
   <div class="header">
     <h1>IDEA FACTORY</h1>
-    <div class="subtitle">Backend Connected Version</div>
+    <div class="subtitle">AI-Powered Idea Validation</div>
+    <div class="nav-links">
+      <a href="/public/graveyard">Idea Graveyard</a>
+      <a href="/public/leaderboard">Leaderboard</a>
+    </div>
     <div id="backendStatus" class="status-badge">Checking backend...</div>
   </div>
 
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-item"><div class="stat-num" id="statValidated">-</div><div class="stat-label">Validated</div></div>
+    <div class="stat-item"><div class="stat-num" id="statBuilt">-</div><div class="stat-label">Built</div></div>
+    <div class="stat-item"><div class="stat-num" id="statKilled">-</div><div class="stat-label">Killed</div></div>
+    <div class="stat-item"><div class="stat-num" id="statAvgScore">-</div><div class="stat-label">Avg Score</div></div>
+    <div class="stat-item"><div class="stat-num" id="statEmails">-</div><div class="stat-label">Emails</div></div>
+  </div>
+
+  <!-- Pain Input -->
   <div class="section">
     <div class="section-title">1. Pain Validation</div>
-    
+
     <div class="form-group">
       <label>Who has this pain?</label>
       <input type="text" id="painWho" placeholder="e.g., Solo founders validating SaaS ideas">
@@ -351,7 +289,7 @@ textarea {
 
     <div class="form-group">
       <label>Direct quotes / complaints (2+ separate pain points)</label>
-      <textarea id="painQuotes" placeholder="e.g., 
+      <textarea id="painQuotes" placeholder="e.g.,
 - 'I built for 6 months, nobody paid...'
 - 'How do I know if my idea is worth building?'
 - 'Wasted $10k on a product nobody wanted'"></textarea>
@@ -368,16 +306,22 @@ textarea {
     </div>
   </div>
 
+  <!-- Idea Input -->
   <div class="section">
     <div class="section-title">2. Your Idea</div>
-    
+
     <div class="form-group">
       <label>Describe your idea (plain language)</label>
       <textarea id="rawIdea" placeholder="e.g., A tool that scrapes pain from Reddit and scores startup ideas before you build them"></textarea>
     </div>
 
+    <div class="form-group">
+      <label>Your email (optional — get notified of updates)</label>
+      <input type="email" id="userEmail" placeholder="you@email.com">
+    </div>
+
     <button class="btn" id="analyzeBtn" onclick="analyzeIdea()">
-      ⚡ Analyze Idea
+      Analyze Idea
     </button>
   </div>
 
@@ -387,26 +331,43 @@ textarea {
 <div class="toast" id="toast"></div>
 
 <script>
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.location.origin.includes('localhost:3000')
+  ? 'http://localhost:8000'
+  : window.location.origin;
+
+let lastResult = null;
 
 // ══════════════════════════════════════════════════
-// BACKEND STATUS CHECK
+// BACKEND STATUS + STATS
 // ══════════════════════════════════════════════════
 async function checkBackend() {
   const badge = document.getElementById('backendStatus');
   try {
     const res = await fetch(API_BASE + '/');
     if (res.ok) {
-      badge.textContent = '✓ Backend Connected';
+      badge.textContent = 'Backend Connected';
       badge.className = 'status-badge connected';
+      loadStats();
     } else {
       throw new Error('Backend error');
     }
   } catch(e) {
-    badge.textContent = '✗ Backend Offline';
+    badge.textContent = 'Backend Offline';
     badge.className = 'status-badge error';
-    toast('⚠️ Backend not running. Start with: cd backend && uvicorn main:app --reload');
+    toast('Backend not running. Start with: cd backend && uvicorn main:app --reload');
   }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch(API_BASE + '/api/stats');
+    const stats = await res.json();
+    document.getElementById('statValidated').textContent = stats.validated || 0;
+    document.getElementById('statBuilt').textContent = stats.built || 0;
+    document.getElementById('statKilled').textContent = stats.killed || 0;
+    document.getElementById('statAvgScore').textContent = stats.avg_score || 0;
+    document.getElementById('statEmails').textContent = stats.total_emails || 0;
+  } catch(e) { /* silent */ }
 }
 
 // ══════════════════════════════════════════════════
@@ -418,16 +379,13 @@ async function analyzeIdea() {
   const painFreq = document.getElementById('painFreq').value.trim();
   const painBuyers = document.getElementById('painBuyers').value.trim();
   const rawIdea = document.getElementById('rawIdea').value.trim();
+  const email = document.getElementById('userEmail').value.trim();
 
-  // Validation
   if (!painWho || !painQuotes || !painFreq || !painBuyers || !rawIdea) {
-    toast('⚠️ Fill all fields');
-    return;
+    toast('Fill all required fields'); return;
   }
-
   if (painQuotes.length < 80) {
-    toast('⚠️ Add more detailed pain quotes (80+ chars)');
-    return;
+    toast('Add more detailed pain quotes (80+ chars)'); return;
   }
 
   const btn = document.getElementById('analyzeBtn');
@@ -435,7 +393,7 @@ async function analyzeIdea() {
   btn.textContent = 'Analyzing...';
 
   const resultsDiv = document.getElementById('results');
-  resultsDiv.innerHTML = '<div class="loading">⚡ Sending to AI for analysis...</div>';
+  resultsDiv.innerHTML = '<div class="loading">Sending to AI for analysis...</div>';
 
   try {
     const res = await fetch(API_BASE + '/api/analyze', {
@@ -443,6 +401,7 @@ async function analyzeIdea() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         raw_idea: rawIdea,
+        email: email || null,
         pain: {
           pain_who: painWho,
           pain_quotes: painQuotes,
@@ -458,15 +417,17 @@ async function analyzeIdea() {
     }
 
     const data = await res.json();
+    lastResult = data;
     displayResults(data);
-    toast('✓ Analysis complete');
+    loadStats();
+    toast('Analysis complete!');
 
   } catch(e) {
     resultsDiv.innerHTML = `<div class="section"><p style="color: var(--red);">Error: ${e.message}</p></div>`;
-    toast('❌ ' + e.message);
+    toast(e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '⚡ Analyze Idea';
+    btn.textContent = 'Analyze Idea';
   }
 }
 
@@ -474,110 +435,173 @@ async function analyzeIdea() {
 // DISPLAY RESULTS
 // ══════════════════════════════════════════════════
 function displayResults(data) {
+  const scoreColor = data.score >= 70 ? 'var(--green)' : data.score >= 40 ? 'var(--orange)' : 'var(--red)';
+  const decisionClass = data.final_decision.includes('KILL') ? 'kill' : data.final_decision.includes('TEST') ? 'test' : 'build';
+
+  const shareUrl = data.share_url || '';
+  const tweetText = encodeURIComponent(`I just validated a startup idea with AI and got a ${data.score}/100 score: ${data.concept}`);
+
   const html = `
+    <!-- Score -->
     <div class="section">
-      <div class="section-title">📊 Analysis Results</div>
-      
+      <div class="score-display">
+        <div class="score-number" style="color:${scoreColor}">${data.score}</div>
+        <div style="font-family:var(--mono); font-size:12px; color:var(--text-muted);">VALIDATION SCORE / 100</div>
+        <div class="score-bar"><div class="score-fill" style="width:${data.score}%; background:${scoreColor};"></div></div>
+      </div>
+    </div>
+
+    <!-- Analysis -->
+    <div class="section">
+      <div class="section-title">Analysis Results</div>
       <div class="result-item">
         <div class="result-label">Concept</div>
         <div class="result-value">${data.concept}</div>
       </div>
-
       <div class="result-item">
         <div class="result-label">Target User</div>
         <div class="result-value">${data.target_user}</div>
       </div>
-
       <div class="result-item">
         <div class="result-label">Core Pain</div>
         <div class="result-value">${data.core_pain}</div>
       </div>
-
       <div class="result-item">
         <div class="result-label">Value Promise</div>
         <div class="result-value">${data.value_promise}</div>
       </div>
+      ${data.category ? `<div class="result-item"><div class="result-label">Category</div><div class="result-value">${data.category}</div></div>` : ''}
     </div>
 
+    <!-- Gates -->
     <div class="section">
-      <div class="section-title">🚪 3-Gate Evaluation</div>
-      
+      <div class="section-title">3-Gate Evaluation</div>
       <div class="gate-grid">
         <div class="gate-card ${data.g1r.startsWith('YES') ? 'pass' : 'fail'}">
           <div class="gate-label">Gate 1</div>
-          <div class="gate-result">${data.g1r.split('—')[0].trim()}</div>
-          <div class="gate-reason">${data.g1r.split('—')[1] || ''}</div>
+          <div class="gate-result">${data.g1r.split('\u2014')[0].trim()}</div>
+          <div class="gate-reason">${data.g1r.split('\u2014')[1] || ''}</div>
         </div>
-
         <div class="gate-card ${data.g2r.startsWith('YES') ? 'pass' : 'fail'}">
           <div class="gate-label">Gate 2</div>
-          <div class="gate-result">${data.g2r.split('—')[0].trim()}</div>
-          <div class="gate-reason">${data.g2r.split('—')[1] || ''}</div>
+          <div class="gate-result">${data.g2r.split('\u2014')[0].trim()}</div>
+          <div class="gate-reason">${data.g2r.split('\u2014')[1] || ''}</div>
         </div>
-
         <div class="gate-card ${data.g3r.startsWith('YES') ? 'pass' : 'fail'}">
           <div class="gate-label">Gate 3</div>
-          <div class="gate-result">${data.g3r.split('—')[0].trim()}</div>
-          <div class="gate-reason">${data.g3r.split('—')[1] || ''}</div>
+          <div class="gate-result">${data.g3r.split('\u2014')[0].trim()}</div>
+          <div class="gate-reason">${data.g3r.split('\u2014')[1] || ''}</div>
         </div>
       </div>
 
-      <div class="decision ${data.final_decision.includes('KILL') ? 'kill' : data.final_decision.includes('TEST') ? 'test' : 'build'}">
+      <div class="decision ${decisionClass}">
         <div class="decision-text">${data.final_decision}</div>
+        <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+          ${data.final_decision.includes('KILL')
+            ? 'This idea failed validation. Move on to the next one.'
+            : data.final_decision.includes('TEST')
+              ? 'Post the pre-sell content below and track signals for 48 hours.'
+              : 'All gates passed! Start building immediately.'}
+        </div>
       </div>
     </div>
 
+    <!-- Pre-sell Content -->
     <div class="section">
-      <div class="section-title">📢 Pre-Sell Content</div>
-      
+      <div class="section-title">Pre-Sell Content (Ready to Post)</div>
       <div class="presell-grid">
         <div class="presell-card">
-          <div class="presell-label">Reddit Post</div>
+          <div class="presell-label">Reddit Post <button class="share-btn" style="float:right;padding:2px 8px;" onclick="copyText('${escapeForAttr(data.reddit)}')">Copy</button></div>
           <div class="presell-content">${data.reddit}</div>
         </div>
-
         <div class="presell-card">
-          <div class="presell-label">X / Twitter</div>
+          <div class="presell-label">X / Twitter <button class="share-btn" style="float:right;padding:2px 8px;" onclick="copyText('${escapeForAttr(data.x_post)}')">Copy</button></div>
           <div class="presell-content">${data.x_post}</div>
         </div>
       </div>
-
-      <div class="result-item" style="margin-top: 12px;">
+      <div class="result-item" style="margin-top:12px;">
         <div class="result-label">Offer</div>
         <div class="result-value">${data.offer}</div>
       </div>
-
       <div class="result-item">
         <div class="result-label">Price</div>
         <div class="result-value">${data.price}</div>
       </div>
-
       <div class="result-item">
         <div class="result-label">Call to Action</div>
         <div class="result-value">${data.cta}</div>
       </div>
     </div>
 
-    <div class="section" style="text-align: center; padding: 20px; background: rgba(200,255,0,0.03);">
-      <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
-        IDEA ID: ${data.id}
+    <!-- Share + Actions -->
+    <div class="section" style="text-align:center;">
+      <div class="section-title">Share & Download</div>
+      <div class="share-bar">
+        <a class="share-btn" href="https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(shareUrl)}" target="_blank">Share on X</a>
+        <a class="share-btn" href="https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(data.concept)}" target="_blank">Share on LinkedIn</a>
+        <a class="share-btn" href="https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent('AI Validation: ' + data.concept)}" target="_blank">Share on Reddit</a>
+        <a class="share-btn" onclick="copyText('${escapeForAttr(shareUrl)}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy Link',2000)" style="cursor:pointer;">Copy Link</a>
       </div>
-      <div style="font-size: 14px; color: var(--text-muted); line-height: 1.6;">
-        ${data.final_decision.includes('KILL') 
-          ? '💀 This idea failed validation. Move on to the next one.' 
-          : data.final_decision.includes('TEST') 
-            ? '🧪 Post the pre-sell content above and track signals for 48 hours.' 
-            : '🚀 All gates passed! Start building immediately.'}
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;">
+        <a class="btn-secondary" href="${API_BASE}/api/idea/${data.id}/pdf" target="_blank">Download PDF Report</a>
+        <button class="btn-secondary" onclick="generateThread('${data.id}')">Generate Twitter Thread</button>
+      </div>
+      <div id="threadContainer"></div>
+    </div>
+
+    <!-- ID -->
+    <div class="section" style="text-align:center; padding:16px; background:rgba(200,255,0,0.03);">
+      <div style="font-family:var(--mono); font-size:11px; color:var(--text-muted);">
+        IDEA ID: ${data.id} &middot; SCORE: ${data.score}/100
+        ${shareUrl ? ` &middot; <a href="${shareUrl}" target="_blank" style="color:var(--accent);">Public Link</a>` : ''}
       </div>
     </div>
   `;
 
   document.getElementById('results').innerHTML = html;
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ══════════════════════════════════════════════════
-// TOAST NOTIFICATIONS
+// TWITTER THREAD GENERATOR
 // ══════════════════════════════════════════════════
+async function generateThread(ideaId) {
+  const container = document.getElementById('threadContainer');
+  container.innerHTML = '<div class="loading">Generating Twitter thread...</div>';
+
+  try {
+    const res = await fetch(API_BASE + `/api/idea/${ideaId}/twitter-thread`);
+    if (!res.ok) throw new Error('Failed to generate thread');
+    const data = await res.json();
+
+    container.innerHTML = `
+      <div class="thread-box">${data.thread}</div>
+      <button class="share-btn highlight" style="margin-top:10px;" onclick="copyText(\`${data.thread.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">Copy Thread</button>
+    `;
+    toast('Twitter thread generated!');
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red); font-size:12px; margin-top:10px;">${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════
+function escapeForAttr(str) {
+  return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied!')).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Copied!');
+  });
+}
+
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;

@@ -4,3 +4,4 @@ sqlalchemy==2.0.36
 anthropic==0.40.0
 pydantic==2.10.3
 python-multipart==0.0.20
+fpdf2==2.8.1

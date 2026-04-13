@@ -1,339 +1,128 @@
-# Idea Factory — Kill or Build
+# Idea Factory v2.0 — AI-Powered Idea Validation + Monetization
 
-**AI-powered idea validation system for solo entrepreneurs.**
+Validate startup ideas in 30 seconds using AI. Get a validation score, pre-sell content, shareable reports, and grow your audience automatically.
 
-Stop building products nobody wants. Validate demand BEFORE writing code.
+## What's New in v2.0
 
----
+### Revenue Features (Zero Manual Work)
+- **Email Capture** — Collects emails on every validation, graveyard visit, and leaderboard view. Export anytime via `/api/emails`.
+- **PDF Validation Reports** — Professional multi-page reports users can download and share. Each download = brand exposure.
+- **Public Graveyard Wall** (`/public/graveyard`) — SEO-optimized page of killed ideas. Attracts organic search traffic for "failed startup ideas", "ideas not to build", etc.
+- **Public Leaderboard** (`/public/leaderboard`) — Top-scoring ideas ranked by AI score. Drives competition and return visits.
+- **Shareable Idea Pages** (`/public/idea/{token}`) — Every validation gets a unique public URL with OG meta tags for Twitter/LinkedIn/Reddit previews.
+- **Twitter Thread Generator** — Auto-generates viral 5-tweet threads from any validated idea. One click to copy and post.
+- **Validation-as-a-Service API** (`/api/v1/validate`) — Same analysis endpoint, ready for external integrations.
+- **Market Trends API** (`/api/trends`) — Aggregated data from all validations (categories, scores, decisions).
 
-## 🎯 What This Does
+### Viral Growth Mechanics
+- Share buttons on every result (Twitter, LinkedIn, Reddit, Copy Link)
+- OG meta tags on all public pages for rich social previews
+- Email capture CTAs on graveyard, leaderboard, and shared idea pages
+- Auto-categorization of ideas for browsable public pages
 
-1. **Pain-First Validation** — Forces you to prove people have the pain BEFORE you build
-2. **3-Gate Scoring** — AI evaluates: Can people pay NOW? Can you build fast? Is pain severe?
-3. **Pre-Sell Testing** — Generates Reddit/X posts to test demand in 48 hours
-4. **Signal Tracking** — Counts payments, replies, clicks to decide: KILL or BUILD
-5. **Auto GitHub Repos** — Creates repo automatically when idea passes validation
+### Scoring System
+Every idea gets a 0-100 validation score based on:
+- Gate 1 pass (30 pts) — Can build v1 in 7 days?
+- Gate 2 pass (30 pts) — Can charge $10+ on day 1?
+- Gate 3 pass (20 pts) — Pain severe enough to switch now?
+- Confidence bonus (up to 20 pts) — AI's confidence in gate answers
 
----
+## Quick Start (Local)
 
-## 🏗️ Architecture
+```bash
+# 1. Clone and setup
+git clone <your-repo-url> && cd idea-factory
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
+
+# 2. Install and run backend
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+# 3. Open frontend (separate terminal)
+cd frontend
+python -m http.server 3000
+# Visit http://localhost:3000/simple.html
+```
+
+Or use Docker:
+```bash
+docker-compose up
+```
+
+## Deploy to Railway (One-Click)
+
+1. Push to GitHub
+2. Go to [railway.app](https://railway.app), connect your repo
+3. Add environment variable: `ANTHROPIC_API_KEY`
+4. Add `BASE_URL` = your Railway URL (e.g., `https://idea-factory-production.up.railway.app`)
+5. Deploy — Railway auto-detects the Dockerfile
+
+The `railway.json` and `Procfile` are already configured.
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `GET /` | Health check | Returns API status |
+| `POST /api/analyze` | Analyze idea | Full AI validation with scoring |
+| `POST /api/signal` | Log signal | Track pay/reply/click signals |
+| `GET /api/ideas` | List ideas | All ideas (newest first) |
+| `GET /api/stats` | Dashboard stats | Validated/built/killed/emails/avg score |
+| `POST /api/decision/{id}` | Finalize | Set KILL/BUILD decision |
+| `POST /api/email/capture` | Capture email | Store email from any source |
+| `GET /api/emails` | List emails | All captured emails (admin) |
+| `GET /api/idea/{id}/twitter-thread` | Twitter thread | Generate/cache viral thread |
+| `GET /api/idea/{id}/pdf` | PDF report | Download validation report |
+| `GET /api/trends` | Market trends | Aggregated validation data |
+| `POST /api/v1/validate` | External API | Validation-as-a-service |
+| `GET /public/graveyard` | Graveyard page | Public killed ideas (HTML) |
+| `GET /public/leaderboard` | Leaderboard page | Public top ideas (HTML) |
+| `GET /public/idea/{token}` | Shared idea | Individual idea page (HTML) |
+
+## Revenue Model
+
+| Channel | How It Works | Revenue Type |
+|---|---|---|
+| Email List | Captured on every interaction | Audience asset (newsletter, launches) |
+| PDF Reports | Professional download, branded | Lead magnet, premium upgrade path |
+| Graveyard SEO | Organic traffic from search | Ad revenue, email capture, affiliate |
+| Leaderboard | Competition drives return visits | Engagement, email capture |
+| Social Sharing | OG tags + threads = viral loops | Organic growth |
+| API Access | External tools integrate | Usage-based pricing (future) |
+
+## Tech Stack
+
+- **Backend:** FastAPI + SQLAlchemy + SQLite (Postgres-ready)
+- **Frontend:** Vanilla HTML/CSS/JS (zero build step)
+- **AI:** Claude Sonnet 4 via Anthropic API
+- **PDF:** fpdf2 (lightweight, no system deps)
+- **Deploy:** Railway / Docker / any PaaS
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `BASE_URL` | No | Public URL for share links (default: localhost:8000) |
+| `DATABASE_URL` | No | Database connection (default: SQLite) |
+| `PORT` | No | Server port (default: 8000) |
+
+## File Structure
 
 ```
 idea-factory/
-├── backend/              # FastAPI + SQLite
-│   ├── main.py          # API server
-│   └── requirements.txt
-├── frontend/            # HTML + vanilla JS
-│   └── index.html       # Your original UI
-├── .env.example         # API key template
-└── README.md           # This file
+├── backend/
+│   ├── main.py              # FastAPI server (all endpoints)
+│   ├── requirements.txt     # Python dependencies
+│   └── Dockerfile           # Container config
+├── frontend/
+│   ├── index.html           # Original full-featured UI
+│   └── simple.html          # Backend-connected UI (recommended)
+├── .env.example             # Environment template
+├── docker-compose.yml       # Local multi-service setup
+├── railway.json             # Railway deployment config
+├── Procfile                 # PaaS deployment
+└── README.md                # This file
 ```
-
-**Tech Stack:**
-- **Backend:** FastAPI + SQLAlchemy + SQLite
-- **AI:** Claude Sonnet 4 (via Anthropic API)
-- **Frontend:** Pure HTML/CSS/JS (no framework)
-- **Database:** SQLite (local file, zero setup)
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.10+
-- Claude API key (get from: https://console.anthropic.com/)
-
-### Step 1: Clone & Setup
-
-```bash
-git clone https://github.com/ismaelsudally/idea-factory.git
-cd idea-factory
-```
-
-### Step 2: Configure API Key
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your Claude API key:
-```
-ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
-```
-
-### Step 3: Install Dependencies
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Step 4: Start Backend
-
-```bash
-uvicorn main:app --reload
-```
-
-Backend running at: http://localhost:8000
-
-### Step 5: Open Frontend
-
-```bash
-# In a new terminal, from project root:
-cd frontend
-python -m http.server 3000
-```
-
-Frontend running at: http://localhost:3000
-
----
-
-## 📡 API Endpoints
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `GET /` | - | Health check |
-| `POST /api/analyze` | JSON | Validate idea, returns scores |
-| `POST /api/signal` | JSON | Log demand signal (pay/reply/click) |
-| `GET /api/ideas` | - | List all ideas |
-| `GET /api/stats` | - | Get validation stats |
-| `POST /api/decision/{idea_id}` | - | Finalize KILL/BUILD decision |
-
-### Example: Analyze Idea
-
-**Request:**
-```json
-POST /api/analyze
-{
-  "raw_idea": "A tool that scrapes pain from Reddit and scores startup ideas",
-  "pain": {
-    "pain_who": "Solo founders validating SaaS",
-    "pain_quotes": "I built for 6 months, nobody paid...\nHow do I know if my idea is worth building?",
-    "pain_freq": "Every solo founder asks this weekly",
-    "pain_buyers": "@startupfounder, @indiemaker, @saasbuilder"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "id": "a4f3e1b2",
-  "concept": "Reddit pain scraper → idea scorer",
-  "target_user": "Solo founders validating SaaS ideas",
-  "core_pain": "Building for months without validating demand first",
-  "value_promise": "Know if people will pay BEFORE writing code",
-  "g1": "Can you build v1 in <7 days?",
-  "g1r": "YES — Scraping API + scoring logic = 3 days max",
-  "g2": "Can you charge >$10 on day 1?",
-  "g2r": "YES — Solo founders pay $29/mo for validation tools",
-  "g3": "Is pain severe enough they'll switch NOW?",
-  "g3r": "YES — Founders lose months building unwanted products",
-  "reddit": "Anyone else build for 6 months then get zero sales?...",
-  "x_post": "Built a SaaS, 0 customers. Realized I never validated demand...",
-  "offer": "Validate your idea in 48h before writing code",
-  "price": "$29",
-  "cta": "DM me 'interested'",
-  "final_decision": "BUILD"
-}
-```
-
----
-
-## 🔄 Workflow
-
-```
-1. YOU DESCRIBE PAIN
-   ↓ "Solo founders waste months building unwanted products"
-   
-2. AI SCORES IDEA
-   ↓ Runs 3 gates: Build speed? Revenue speed? Pain severity?
-   
-3. AI GENERATES PRE-SELL
-   ↓ Creates Reddit post + X post to test demand
-   
-4. YOU POST & TRACK SIGNALS
-   ↓ 48 hours: Count payments, replies, clicks
-   
-5. DECISION ENGINE
-   ↓ 1 payment? → BUILD NOW
-   ↓ 5+ replies? → REFINE & REPOST
-   ↓ 10+ clicks, 0 intent? → KILL
-```
-
----
-
-## 🗄️ Database Schema
-
-**ideas table:**
-```sql
-CREATE TABLE ideas (
-  id TEXT PRIMARY KEY,
-  date DATETIME,
-  pain_who TEXT,
-  pain_quotes TEXT,
-  pain_freq TEXT,
-  pain_buyers TEXT,
-  raw_idea TEXT,
-  concept TEXT,
-  target_user TEXT,
-  core_pain TEXT,
-  value_promise TEXT,
-  g1 TEXT, g1r TEXT,  -- Gate 1 question + result
-  g2 TEXT, g2r TEXT,  -- Gate 2 question + result
-  g3 TEXT, g3r TEXT,  -- Gate 3 question + result
-  reddit TEXT,
-  x_post TEXT,
-  offer TEXT,
-  price TEXT,
-  cta TEXT,
-  pay INTEGER DEFAULT 0,
-  rep INTEGER DEFAULT 0,
-  clk INTEGER DEFAULT 0,
-  countdown_start DATETIME,
-  final_decision TEXT,  -- KILL | TEST FIRST | BUILD
-  repo_url TEXT,
-  ai_response JSON
-);
-```
-
-**stats table:**
-```sql
-CREATE TABLE stats (
-  id INTEGER PRIMARY KEY,
-  validated INTEGER DEFAULT 0,
-  built INTEGER DEFAULT 0,
-  killed INTEGER DEFAULT 0,
-  week INTEGER DEFAULT 0,
-  week_start DATETIME
-);
-```
-
----
-
-## 🛠️ Development
-
-### Run Tests (Coming Soon)
-```bash
-pytest backend/tests/
-```
-
-### Check API Docs
-```
-http://localhost:8000/docs  # Swagger UI
-http://localhost:8000/redoc # ReDoc
-```
-
-### Reset Database
-```bash
-rm backend/idea_factory.db
-# Restart server to recreate tables
-```
-
----
-
-## 🚢 Deployment (Future)
-
-**Option A: Docker**
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY backend/ .
-RUN pip install -r requirements.txt
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-**Option B: Railway.app**
-1. Push to GitHub
-2. Connect Railway to repo
-3. Add `ANTHROPIC_API_KEY` env var
-4. Deploy
-
-**Option C: Fly.io**
-```bash
-fly launch
-fly secrets set ANTHROPIC_API_KEY=sk-ant-...
-fly deploy
-```
-
----
-
-## 📊 Roadmap
-
-### ✅ Phase 1: Validation Engine (COMPLETE)
-- [x] Pain-first input flow
-- [x] Claude API integration
-- [x] 3-gate scoring system
-- [x] Pre-sell content generation
-- [x] SQLite persistence
-
-### 🚧 Phase 2: App Generator (IN PROGRESS)
-- [ ] Template system (React, Next.js, FastAPI)
-- [ ] Code generation via Claude
-- [ ] Auto GitHub repo creation
-- [ ] Vercel/Railway deployment automation
-
-### 📋 Phase 3: Marketing Automation (PLANNED)
-- [ ] Auto-post to Reddit/X/HN
-- [ ] Email waitlist builder
-- [ ] Landing page generator
-- [ ] Analytics dashboard
-
-### 🌍 Phase 4: Multi-Region (PLANNED)
-- [ ] Regional market insights (UAE vs US vs EU)
-- [ ] Platform preferences by region (Instagram vs TikTok)
-- [ ] Localized pricing recommendations
-
----
-
-## 🤝 Contributing
-
-This is a solo project by [@ismaelsudally](https://github.com/ismaelsudally).
-
-If you find bugs or have feature requests:
-1. Open an issue
-2. Or fork + PR
-
----
-
-## 📄 License
-
-MIT License - Build whatever you want with this.
-
----
-
-## 🙏 Credits
-
-- **Original Concept:** Ismael Sudally
-- **AI Partner:** Claude (Anthropic)
-- **Inspired by:** ludo.ai, ProductHunt Ship, Indie Hackers
-
----
-
-## ⚠️ Important Notes
-
-**API Key Security:**
-- NEVER commit `.env` to git
-- NEVER expose API keys in frontend code
-- Backend handles all Claude API calls
-
-**Cost Estimation:**
-- Each idea analysis: ~3,000 tokens (~$0.01)
-- 100 ideas/month: ~$1.00
-- Claude Sonnet 4 pricing: https://www.anthropic.com/pricing
-
-**Limitations:**
-- SQLite = single user (for now)
-- No authentication (local use only)
-- GitHub integration requires manual PAT setup
-
----
-
-## 💬 Questions?
-
-Open an issue or DM [@ismaelsudally](https://github.com/ismaelsudally)
-
-**Built with Claude. Validated with pain. Shipped with speed.**
