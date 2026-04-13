@@ -1,11 +1,12 @@
 """
-Idea Factory v4.0 — Multi-AI Idea Validator
-Personal tool. Type an idea → 4 AIs research & score it.
+Idea Factory v4.0 — Multi-AI Idea Validator & App Builder
+Personal tool. Type an idea → 4 AIs research & score it → generate everything to build & sell.
 
 Pipeline:
   Step 1 (parallel): Perplexity (web search) + Grok (X sentiment)
   Step 2 (parallel): Claude (deep analysis) + GPT-4o (business model)
   Step 3: Combine → Score → Save
+  Step 4: Deep-dive tools → App scaffold, monetization plan, product kit
 
 STACK: FastAPI + SQLite + Anthropic + OpenAI + Perplexity + Grok
 """
@@ -108,6 +109,11 @@ class IdeaDB(Base):
     revenue_sim = Column(JSON, nullable=True)
     mvp_plan = Column(JSON, nullable=True)
     distribution_plan = Column(JSON, nullable=True)
+    # App-builder outputs (the sellable product)
+    app_scaffold = Column(JSON, nullable=True)
+    monetization_plan = Column(JSON, nullable=True)
+    pricing_intel = Column(JSON, nullable=True)
+    product_kit = Column(JSON, nullable=True)
 
 
 class StatsDB(Base):
@@ -150,6 +156,8 @@ _MIGRATE = [
     ("is_premium_report", "INTEGER DEFAULT 0"),
     ("blueprint", "TEXT"), ("landing_page_html", "TEXT"),
     ("revenue_sim", "TEXT"), ("mvp_plan", "TEXT"), ("distribution_plan", "TEXT"),
+    ("app_scaffold", "TEXT"), ("monetization_plan", "TEXT"),
+    ("pricing_intel", "TEXT"), ("product_kit", "TEXT"),
 ]
 with engine.connect() as _conn:
     for _col, _type in _MIGRATE:
@@ -727,8 +735,8 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 # ═════════════════════════════════════════════════════
 #  APP
 # ═════════════════════════════════════════════════════
-app = FastAPI(title="Idea Factory", version="4.0.0",
-              description="Multi-AI idea validation — personal tool")
+app = FastAPI(title="Idea Factory", version="5.0.0",
+              description="Multi-AI idea validation + app builder — personal tool")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -747,7 +755,7 @@ async def root():
         if os.path.exists(p):
             with open(p) as f:
                 return HTMLResponse(content=f.read())
-    return {"status": "Idea Factory running", "version": "4.0.0"}
+    return {"status": "Idea Factory running", "version": "5.0.0"}
 
 
 @app.get("/api/health")
@@ -755,7 +763,7 @@ def health():
     has_claude = bool(ANTHROPIC_API_KEY)
     using_fallbacks = has_claude and not (PERPLEXITY_API_KEY and OPENAI_API_KEY and GROK_API_KEY)
     return {
-        "status": "ok", "version": "4.0.0",
+        "status": "ok", "version": "5.0.0",
         "engines": {
             "claude": has_claude,
             "perplexity": bool(PERPLEXITY_API_KEY) or has_claude,
@@ -1269,16 +1277,33 @@ async def generate_landing_page(idea_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Idea not found")
     if idea.landing_page_html:
         return HTMLResponse(content=idea.landing_page_html)
-    prompt = f"""Generate a complete landing page HTML for this product. Single file, embedded CSS/JS.
-Dark theme (#080808 bg, #c8ff00 accent). Include: hero, pain points, solution, pricing, FAQ, footer.
+    prompt = f"""Generate a complete, production-quality landing page HTML for this product.
+Single file, embedded CSS/JS. Dark theme (#080808 bg, #c8ff00 accent).
+
+MUST INCLUDE these sections:
+1. Hero with headline, subheadline, and prominent CTA button
+2. Pain points section (3 pain points with icons)
+3. Solution / How it works (3 steps)
+4. Features grid (4-6 features with descriptions)
+5. Pricing section with 2-3 tiers (Free, Pro, Business)
+6. Testimonials / Social proof section (3 placeholder quotes)
+7. **WORKING EMAIL WAITLIST FORM** — input field + submit button + counter showing "X people joined"
+   The form should use JavaScript to store emails in localStorage AND show a success message.
+   Include a counter that persists across page loads.
+8. FAQ section (5 questions)
+9. Footer with links
+
+Make it responsive, modern, and conversion-optimized. Include smooth scroll, hover effects,
+and subtle animations. This should look like a real SaaS landing page worth paying for.
 
 PRODUCT: {idea.concept}
 TARGET: {idea.target_user}
 PAIN: {idea.core_pain}
 PRICE: {idea.price}
 CTA: {idea.cta}
+VALUE: {idea.value_promise}
 
-Return ONLY HTML. No markdown."""
+Return ONLY the complete HTML. No markdown wrapping."""
     try:
         html = await _call_claude(prompt, 4000)
     except Exception as e:
@@ -1601,6 +1626,442 @@ Return ONLY this JSON (no markdown):
     try:
         raw = await _call_claude(prompt, 2500)
         return parse_json_response(raw)
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+# ═════════════════════════════════════════════════════
+#  APP BUILDER — generate sellable products from ideas
+# ═════════════════════════════════════════════════════
+
+@app.get("/api/idea/{idea_id}/generate-app")
+async def generate_app_scaffold(idea_id: str, db: Session = Depends(get_db)):
+    """Generate a complete app scaffold for a validated idea — file tree, code, configs, README.
+    This is the core value: go from idea → sellable product with zero manual intervention."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    if idea.app_scaffold:
+        return {"idea_id": idea_id, **idea.app_scaffold}
+
+    biz_context = ""
+    if idea.gpt_business and isinstance(idea.gpt_business, dict):
+        biz_context = f"\nBUSINESS MODEL: {json.dumps(idea.gpt_business)}"
+
+    bp_context = ""
+    if idea.blueprint and isinstance(idea.blueprint, dict):
+        bp_context = f"\nBLUEPRINT: {json.dumps(idea.blueprint)}"
+
+    prompt = f"""You are a senior full-stack developer. Generate a complete app scaffold for this
+validated startup idea. This should be production-ready enough to deploy and start selling.
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+PRICE: {idea.price}
+SCORE: {idea.score}/100{biz_context}{bp_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "app_name": "kebab-case project name",
+  "display_name": "Human-readable product name",
+  "tagline": "One-line value prop (max 12 words)",
+  "tech_stack": {{
+    "frontend": "Framework (e.g. Next.js, React, Vue)",
+    "backend": "Framework (e.g. FastAPI, Express, Rails)",
+    "database": "Database (e.g. PostgreSQL, SQLite, Supabase)",
+    "hosting": "Recommended platform (e.g. Vercel, Railway, Fly.io)",
+    "payments": "Stripe or Lemon Squeezy",
+    "auth": "Auth solution (e.g. NextAuth, Clerk, Supabase Auth)"
+  }},
+  "file_tree": [
+    "package.json",
+    "README.md",
+    "Dockerfile",
+    ".env.example",
+    "src/index.ts",
+    "src/routes/api.ts",
+    "src/models/user.ts",
+    "src/middleware/auth.ts",
+    "public/index.html"
+  ],
+  "key_files": [
+    {{
+      "path": "package.json",
+      "content": "{{ACTUAL package.json content with real dependencies}}"
+    }},
+    {{
+      "path": "README.md",
+      "content": "# App Name\\n\\nDescription and setup instructions"
+    }},
+    {{
+      "path": ".env.example",
+      "content": "DATABASE_URL=\\nSTRIPE_SECRET_KEY=\\nAUTH_SECRET="
+    }},
+    {{
+      "path": "Dockerfile",
+      "content": "FROM node:20-alpine\\nWORKDIR /app\\n..."
+    }},
+    {{
+      "path": "src/index.ts",
+      "content": "// Main entry point with route setup"
+    }}
+  ],
+  "setup_commands": [
+    "npm install",
+    "cp .env.example .env",
+    "npm run dev"
+  ],
+  "deploy_commands": {{
+    "docker": ["docker build -t app .", "docker run -p 3000:3000 app"],
+    "vercel": ["npx vercel --prod"],
+    "railway": ["railway up"]
+  }},
+  "mvp_features": [
+    {{"name": "Feature name", "description": "What it does", "endpoint": "/api/...", "priority": "P0"}},
+    {{"name": "Feature 2", "description": "What it does", "endpoint": "/api/...", "priority": "P0"}},
+    {{"name": "Feature 3", "description": "What it does", "endpoint": "/api/...", "priority": "P1"}},
+    {{"name": "Feature 4", "description": "What it does", "endpoint": "/api/...", "priority": "P1"}},
+    {{"name": "Feature 5", "description": "What it does", "endpoint": "/api/...", "priority": "P2"}}
+  ],
+  "database_schema": [
+    {{"table": "users", "columns": ["id", "email", "plan", "created_at"], "purpose": "User accounts"}},
+    {{"table": "main_entity", "columns": ["id", "user_id", "data", "created_at"], "purpose": "Core data"}}
+  ],
+  "api_routes": [
+    {{"method": "POST", "path": "/api/auth/signup", "description": "User registration"}},
+    {{"method": "POST", "path": "/api/auth/login", "description": "User login"}},
+    {{"method": "GET", "path": "/api/main", "description": "Get user data"}},
+    {{"method": "POST", "path": "/api/main", "description": "Create new entry"}},
+    {{"method": "POST", "path": "/api/checkout", "description": "Stripe checkout session"}}
+  ],
+  "revenue_ready": {{
+    "stripe_integration": "How Stripe is wired in",
+    "pricing_tiers": [
+      {{"name": "Free", "price": "$0", "features": ["f1", "f2"], "limits": "X per month"}},
+      {{"name": "Pro", "price": "{idea.price or '$29/mo'}", "features": ["f1", "f2", "f3", "f4"], "limits": "Unlimited"}}
+    ],
+    "paywall_strategy": "What gets gated and why"
+  }},
+  "launch_checklist": [
+    "Set up Stripe account and add keys to .env",
+    "Deploy to hosting platform",
+    "Add custom domain",
+    "Set up email (e.g. Resend or SendGrid)",
+    "Submit to Product Hunt",
+    "Post launch thread on X"
+  ],
+  "estimated_build_time": "X hours for MVP",
+  "first_dollar_timeline": "How long until first paying customer (realistic estimate)"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 4000)
+        result = parse_json_response(raw)
+        idea.app_scaffold = result
+        db.commit()
+        return {"idea_id": idea_id, **result}
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/monetization-plan")
+async def monetization_plan(idea_id: str, db: Session = Depends(get_db)):
+    """Generate a detailed monetization strategy for the APP being built from this idea.
+    NOT monetizing Idea Factory — monetizing the product the user will sell."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    if idea.monetization_plan:
+        return {"idea_id": idea_id, **idea.monetization_plan}
+
+    comp_context = ""
+    if idea.perplexity_research and isinstance(idea.perplexity_research, dict):
+        comps = idea.perplexity_research.get("competitors", [])
+        if comps:
+            comp_context = f"\nCOMPETITOR PRICING: {json.dumps(comps)}"
+
+    biz_context = ""
+    if idea.gpt_business and isinstance(idea.gpt_business, dict):
+        biz_context = f"\nBUSINESS MODEL: {json.dumps(idea.gpt_business)}"
+
+    prompt = f"""You are a monetization strategist. Create a comprehensive plan to maximize revenue
+for this app/product. Think like a SaaS pricing expert — be specific about what to charge,
+what to gate, and how to upsell. The goal is to help the builder make money from this product.
+
+PRODUCT: {idea.concept}
+TARGET CUSTOMER: {idea.target_user}
+PAIN: {idea.core_pain}
+SUGGESTED PRICE: {idea.price}
+SCORE: {idea.score}/100{comp_context}{biz_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "primary_model": "SaaS / Marketplace / Usage-based / Freemium / One-time / etc.",
+  "pricing_strategy": {{
+    "approach": "Value-based / Competitor-based / Cost-plus — and why",
+    "anchor_price": "The price you show first to anchor expectations",
+    "tiers": [
+      {{
+        "name": "Free",
+        "price": "$0/mo",
+        "features": ["Feature 1", "Feature 2", "Feature 3"],
+        "limits": "Specific usage limits",
+        "purpose": "Why this tier exists (e.g. lead gen, viral growth)"
+      }},
+      {{
+        "name": "Pro",
+        "price": "$X/mo",
+        "features": ["Everything in Free", "Pro Feature 1", "Pro Feature 2", "Pro Feature 3"],
+        "limits": "Higher or no limits",
+        "purpose": "Main revenue driver"
+      }},
+      {{
+        "name": "Business/Enterprise",
+        "price": "$X/mo or custom",
+        "features": ["Everything in Pro", "Team features", "Priority support", "Custom integrations"],
+        "limits": "Unlimited",
+        "purpose": "High-value accounts"
+      }}
+    ],
+    "recommended_launch_price": "What to charge at launch and why",
+    "price_increase_timeline": "When and how to raise prices"
+  }},
+  "revenue_streams": [
+    {{
+      "stream": "Subscriptions",
+      "percentage_of_revenue": "70%",
+      "description": "Monthly/annual SaaS subscriptions",
+      "optimization": "How to maximize this stream"
+    }},
+    {{
+      "stream": "Second stream (e.g. API access, marketplace cut, add-ons)",
+      "percentage_of_revenue": "20%",
+      "description": "How this works",
+      "optimization": "How to grow this"
+    }},
+    {{
+      "stream": "Third stream (e.g. consulting, whitelabel, data)",
+      "percentage_of_revenue": "10%",
+      "description": "How this works",
+      "optimization": "How to grow this"
+    }}
+  ],
+  "paywall_playbook": {{
+    "free_to_paid_trigger": "The exact moment a free user should hit the paywall",
+    "what_to_gate": ["Feature 1 to lock behind payment", "Feature 2", "Feature 3"],
+    "what_stays_free": ["Feature that drives virality", "Feature that hooks users"],
+    "upgrade_prompts": [
+      {{"trigger": "When user hits limit", "message": "Upgrade copy that converts", "placement": "Where in the UI"}},
+      {{"trigger": "When user tries premium feature", "message": "Teaser message", "placement": "Where in the UI"}}
+    ],
+    "trial_strategy": "Free trial length and what to include (or why no trial)"
+  }},
+  "upsell_opportunities": [
+    {{"from": "Free", "to": "Pro", "trigger": "What makes them upgrade", "expected_conversion": "X%"}},
+    {{"from": "Pro", "to": "Business", "trigger": "What makes them upgrade", "expected_conversion": "X%"}},
+    {{"from": "Any", "to": "Annual", "trigger": "Discount incentive", "expected_conversion": "X%"}}
+  ],
+  "revenue_projections": {{
+    "month_1": {{"users": 50, "paying": 5, "mrr": "$X"}},
+    "month_3": {{"users": 200, "paying": 30, "mrr": "$X"}},
+    "month_6": {{"users": 500, "paying": 100, "mrr": "$X"}},
+    "month_12": {{"users": 2000, "paying": 400, "mrr": "$X"}},
+    "assumptions": "Key assumptions behind these numbers"
+  }},
+  "quick_wins": [
+    "Fastest way to get first dollar (specific tactic)",
+    "Second fastest revenue tactic",
+    "Third tactic"
+  ],
+  "anti_patterns": [
+    "Common monetization mistake to avoid for this type of product",
+    "Second mistake",
+    "Third mistake"
+  ]
+}}"""
+    try:
+        raw = await _call_claude(prompt, 4000)
+        result = parse_json_response(raw)
+        idea.monetization_plan = result
+        db.commit()
+        return {"idea_id": idea_id, **result}
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/pricing-intel")
+async def pricing_intel(idea_id: str, db: Session = Depends(get_db)):
+    """Research competitor pricing and generate optimal pricing strategy for the app."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    if idea.pricing_intel:
+        return {"idea_id": idea_id, **idea.pricing_intel}
+
+    comp_context = ""
+    if idea.perplexity_research and isinstance(idea.perplexity_research, dict):
+        comps = idea.perplexity_research.get("competitors", [])
+        if comps:
+            comp_context = f"\nKNOWN COMPETITORS: {json.dumps(comps)}"
+
+    prompt = f"""You are a pricing strategist. Research the competitive landscape and generate
+an optimal pricing strategy for this product. Use real competitor prices. Be data-driven.
+
+PRODUCT: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+CURRENT PRICE IDEA: {idea.price}{comp_context}
+
+Return ONLY this JSON (no markdown):
+{{
+  "competitor_prices": [
+    {{"name": "Competitor 1", "price": "$X/mo", "model": "Subscription model", "features_at_price": ["key feature 1", "key feature 2"], "weakness": "Gap you can exploit"}},
+    {{"name": "Competitor 2", "price": "$X/mo", "model": "Model", "features_at_price": ["feature 1"], "weakness": "Gap"}},
+    {{"name": "Competitor 3", "price": "$X/mo", "model": "Model", "features_at_price": ["feature 1"], "weakness": "Gap"}}
+  ],
+  "market_positioning": {{
+    "strategy": "Premium / Mid-market / Budget / Undercut — and why",
+    "price_range": {{"low": "$X", "sweet_spot": "$X", "high": "$X"}},
+    "justification": "Why this positioning wins (2 sentences)"
+  }},
+  "optimal_price": {{
+    "monthly": "$X/mo",
+    "annual": "$X/yr (save X%)",
+    "lifetime": "$X one-time (optional — only if it makes sense)",
+    "reasoning": "Why this price maximizes revenue (consider willingness-to-pay, market norms, value delivered)"
+  }},
+  "price_sensitivity": {{
+    "too_cheap": "Below $X signals low quality",
+    "sweet_spot": "$X-$Y is where most customers convert",
+    "too_expensive": "Above $X loses price-sensitive buyers",
+    "enterprise_threshold": "Above $X requires sales calls"
+  }},
+  "revenue_at_price_points": [
+    {{"price": "$X/mo", "expected_conversion": "X%", "at_1000_visitors": "$X MRR", "verdict": "Too low / Good / Best / Too high"}},
+    {{"price": "$Y/mo", "expected_conversion": "X%", "at_1000_visitors": "$X MRR", "verdict": "Verdict"}},
+    {{"price": "$Z/mo", "expected_conversion": "X%", "at_1000_visitors": "$X MRR", "verdict": "Verdict"}}
+  ],
+  "pricing_psychology": [
+    "Specific psychological pricing tactic to use (e.g. .99 pricing, anchoring, decoy)",
+    "Second tactic",
+    "Third tactic"
+  ],
+  "launch_discount_strategy": "Whether to offer launch pricing, how much off, for how long",
+  "when_to_raise_prices": "Signals that it's time to increase prices"
+}}"""
+    try:
+        raw = await _call_claude(prompt, 3000)
+        result = parse_json_response(raw)
+        idea.pricing_intel = result
+        db.commit()
+        return {"idea_id": idea_id, **result}
+    except Exception as e:
+        raise HTTPException(503, f"AI temporarily unavailable: {e}")
+
+
+@app.get("/api/idea/{idea_id}/product-kit")
+async def product_kit(idea_id: str, db: Session = Depends(get_db)):
+    """One-click auto-pipeline: generates ALL assets for launching a sellable product.
+    Runs premium-report + monetization-plan + pricing-intel in one shot.
+    Zero manual intervention — submit idea, get everything back."""
+    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
+    if not idea:
+        raise HTTPException(404, "Idea not found")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "AI backend not configured")
+    if idea.product_kit:
+        return {"idea_id": idea_id, **idea.product_kit}
+
+    prompt = f"""You are a startup launch advisor. Generate a COMPLETE product launch kit for this
+validated idea. This is everything the builder needs to go from idea to revenue. Be thorough.
+
+IDEA: {idea.concept}
+TARGET: {idea.target_user}
+PAIN: {idea.core_pain}
+PRICE: {idea.price}
+SCORE: {idea.score}/100
+VALUE: {idea.value_promise}
+
+Return ONLY this JSON (no markdown):
+{{
+  "product_name": "Recommended product name",
+  "one_liner": "The pitch in one sentence",
+  "elevator_pitch": "30-second pitch (3-4 sentences)",
+  "positioning_statement": "For [target] who [pain], [product] is a [category] that [benefit]. Unlike [competitor], we [differentiator].",
+  "brand": {{
+    "tone": "Professional / Casual / Playful / Technical",
+    "colors": {{"primary": "#hexcode", "accent": "#hexcode", "background": "#hexcode"}},
+    "tagline_options": ["Tagline 1", "Tagline 2", "Tagline 3"],
+    "domain_suggestions": ["name.com", "name.io", "getname.com", "tryname.app"]
+  }},
+  "launch_assets": {{
+    "product_hunt_tagline": "PH-optimized one-liner (max 60 chars)",
+    "product_hunt_description": "2-3 sentence description for PH",
+    "twitter_launch_thread": [
+      "Tweet 1/5: Hook — the problem everyone has",
+      "Tweet 2/5: What we built",
+      "Tweet 3/5: Key feature highlight",
+      "Tweet 4/5: Social proof or early results",
+      "Tweet 5/5: CTA with link"
+    ],
+    "reddit_post": {{
+      "subreddits": ["r/relevant1", "r/relevant2", "r/SideProject"],
+      "title": "Post title that doesn't look like spam",
+      "body": "3-4 paragraph post that provides value first, then mentions the product"
+    }},
+    "email_announcement": {{
+      "subject_line": "Subject that gets opened",
+      "preview_text": "Preview text",
+      "body_outline": ["Opening hook", "Problem statement", "Solution intro", "Key features", "CTA"]
+    }},
+    "linkedin_post": "Professional post for LinkedIn (2-3 paragraphs)"
+  }},
+  "sales_page_sections": [
+    {{"section": "Hero", "headline": "Main headline", "subheadline": "Supporting text", "cta": "Button text"}},
+    {{"section": "Problem", "headline": "Section headline", "content": "Pain point description"}},
+    {{"section": "Solution", "headline": "Section headline", "content": "How the product solves it"}},
+    {{"section": "Features", "headline": "Section headline", "features": ["Feature 1 with benefit", "Feature 2", "Feature 3"]}},
+    {{"section": "Pricing", "headline": "Section headline", "content": "Pricing approach"}},
+    {{"section": "FAQ", "questions": [{{"q": "Question 1", "a": "Answer"}}, {{"q": "Question 2", "a": "Answer"}}, {{"q": "Question 3", "a": "Answer"}}]}},
+    {{"section": "CTA", "headline": "Final push headline", "cta": "Button text"}}
+  ],
+  "monetization_summary": {{
+    "primary_model": "How this makes money",
+    "launch_price": "What to charge at launch",
+    "first_dollar_plan": "Step-by-step to get the very first paying customer",
+    "month_1_target": "Realistic revenue goal for month 1",
+    "scaling_path": "How to go from $1K to $10K MRR"
+  }},
+  "pre_launch_checklist": [
+    {{"task": "Task 1", "time": "X hours", "priority": "P0", "why": "Why this matters"}},
+    {{"task": "Task 2", "time": "X hours", "priority": "P0", "why": "Why"}},
+    {{"task": "Task 3", "time": "X hours", "priority": "P1", "why": "Why"}},
+    {{"task": "Task 4", "time": "X hours", "priority": "P1", "why": "Why"}},
+    {{"task": "Task 5", "time": "X hours", "priority": "P2", "why": "Why"}}
+  ],
+  "automation_opportunities": [
+    "Thing that can be automated to reduce manual work",
+    "Second automation opportunity",
+    "Third automation opportunity"
+  ],
+  "kpis_to_track": [
+    {{"metric": "MRR", "target": "$X by month 3", "how_to_track": "Stripe dashboard"}},
+    {{"metric": "Conversion rate", "target": "X%", "how_to_track": "Analytics"}},
+    {{"metric": "Churn", "target": "Below X%", "how_to_track": "Stripe"}}
+  ]
+}}"""
+    try:
+        raw = await _call_claude(prompt, 4000)
+        result = parse_json_response(raw)
+        idea.product_kit = result
+        db.commit()
+        return {"idea_id": idea_id, **result}
     except Exception as e:
         raise HTTPException(503, f"AI temporarily unavailable: {e}")
 

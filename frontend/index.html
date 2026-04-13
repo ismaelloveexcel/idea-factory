@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Idea Factory — Multi-AI Idea Validator</title>
+<title>Idea Factory — Validate Ideas → Build Apps → Sell</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -436,7 +436,7 @@ body {
 <header class="header">
   <div class="logo">
     <div class="logo-dot"></div>
-    IDEA FACTORY <span>/ v4</span>
+    IDEA FACTORY <span>/ v5</span>
   </div>
   <div class="nav-links">
     <a href="/public/leaderboard">Leaderboard</a>
@@ -993,6 +993,14 @@ function renderResults(r) {
     + ' <button class="act-btn outline" onclick="copyText(this,\'' + escAttr(r.share_url || '') + '\')">Copy Share Link</button>'
     + ' <button class="act-btn outline" onclick="getBuildPlan(\'' + escAttr(id) + '\')">Build Plan</button>'
     + ' <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>'
+    + '<div style="width:100%;margin-top:14px;border-top:2px solid var(--ac-bd);padding-top:14px">'
+    + '<div style="font-family:var(--mn);font-size:10px;color:var(--ac);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:10px;font-weight:600">&#9889; Build &amp; Sell This App</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<button class="act-btn outline" aria-label="Generate App Code" style="border-color:var(--ac-bd)" onclick="deepDive(\'' + escAttr(id) + '\',\'generate-app\',\'App Scaffold\')">&#128187; Generate App</button>'
+    + '<button class="act-btn outline" aria-label="Monetization Plan" style="border-color:var(--ac-bd)" onclick="deepDive(\'' + escAttr(id) + '\',\'monetization-plan\',\'Monetization Plan\')">&#128176; Monetization</button>'
+    + '<button class="act-btn outline" aria-label="Pricing Intelligence" style="border-color:var(--ac-bd)" onclick="deepDive(\'' + escAttr(id) + '\',\'pricing-intel\',\'Pricing Intel\')">&#127991; Pricing Intel</button>'
+    + '<button class="act-btn outline" aria-label="Full Product Kit" style="border-color:var(--ac-bd)" onclick="deepDive(\'' + escAttr(id) + '\',\'product-kit\',\'Product Kit\')">&#128230; Full Product Kit</button>'
+    + '</div></div>'
     + '<div style="width:100%;margin-top:10px;border-top:1px solid var(--bd);padding-top:10px">'
     + '<div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Deep Dive Tools</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -1138,6 +1146,10 @@ function renderDeepDive(endpoint, data) {
   if (endpoint === 'swot') return renderSWOT(data);
   if (endpoint === 'unit-economics') return renderUnitEcon(data);
   if (endpoint === 'twitter-thread') return renderThread(data);
+  if (endpoint === 'generate-app') return renderAppScaffold(data);
+  if (endpoint === 'monetization-plan') return renderMonetization(data);
+  if (endpoint === 'pricing-intel') return renderPricingIntel(data);
+  if (endpoint === 'product-kit') return renderProductKit(data);
   return '<pre style="white-space:pre-wrap;font-size:12px;color:var(--dm)">' + esc(JSON.stringify(data, null, 2)) + '</pre>';
 }
 
@@ -1323,6 +1335,257 @@ function renderThread(d) {
       + '<div style="font-size:13px;color:var(--tx);line-height:1.6">' + esc(t) + '</div>'
       + '<button class="copy-btn" onclick="copyText(this,\'' + escAttr(t) + '\')" style="position:absolute;top:8px;right:8px">Copy</button></div>';
   });
+  return h;
+}
+
+function renderAppScaffold(d) {
+  var h = '';
+  if (d.display_name) {
+    h += '<div style="text-align:center;margin-bottom:18px"><div style="font-size:22px;font-weight:800;color:var(--ac)">' + esc(d.display_name) + '</div>'
+      + '<div style="font-size:13px;color:var(--dm)">' + esc(d.tagline || '') + '</div></div>';
+  }
+  var ts = d.tech_stack || {};
+  if (Object.keys(ts).length) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Tech Stack</div><div class="tag-list">';
+    Object.keys(ts).forEach(function(k) { h += '<span class="tag"><strong>' + esc(k) + ':</strong> ' + esc(ts[k]) + '</span>'; });
+    h += '</div></div>';
+  }
+  if (d.file_tree) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Project Files</div>'
+      + '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;font-family:var(--mn);font-size:11px;color:var(--dm)">';
+    (d.file_tree || []).forEach(function(f) { h += '<div style="padding:2px 0">&#128196; ' + esc(f) + '</div>'; });
+    h += '</div></div>';
+  }
+  if (d.key_files) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Key Files</div>';
+    (d.key_files || []).forEach(function(f) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px;position:relative">'
+        + '<div style="font-family:var(--mn);font-size:11px;color:var(--ac);margin-bottom:6px">' + esc(f.path) + '</div>'
+        + '<pre style="font-size:11px;color:var(--dm);white-space:pre-wrap;overflow-x:auto;margin:0">' + esc(f.content || '') + '</pre>'
+        + '<button class="copy-btn" onclick="copyText(this,\'' + escAttr(f.content || '') + '\')" style="position:absolute;top:8px;right:8px">Copy</button></div>';
+    });
+    h += '</div>';
+  }
+  if (d.mvp_features) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">MVP Features</div>';
+    (d.mvp_features || []).forEach(function(f) {
+      var pc = f.priority === 'P0' ? 'var(--rd)' : f.priority === 'P1' ? 'var(--or)' : 'var(--mt)';
+      h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">'
+        + '<span style="font-family:var(--mn);font-size:9px;color:' + pc + ';font-weight:700">' + esc(f.priority || 'P2') + '</span>'
+        + '<div><div style="font-weight:600;font-size:13px">' + esc(f.name) + '</div><div style="font-size:11px;color:var(--dm)">' + esc(f.description || '') + '</div></div></div>';
+    });
+    h += '</div>';
+  }
+  var rev = d.revenue_ready || {};
+  if (rev.pricing_tiers) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Revenue Model</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">';
+    (rev.pricing_tiers || []).forEach(function(t) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px;text-align:center">'
+        + '<div style="font-weight:700;color:var(--tx)">' + esc(t.name) + '</div>'
+        + '<div style="font-size:20px;font-weight:800;color:var(--ac);margin:6px 0">' + esc(t.price) + '</div>';
+      (t.features || []).forEach(function(f) { h += '<div style="font-size:11px;color:var(--dm)">✓ ' + esc(f) + '</div>'; });
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
+  if (d.setup_commands) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Quick Start</div>'
+      + '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;font-family:var(--mn);font-size:11px">';
+    (d.setup_commands || []).forEach(function(c) { h += '<div style="color:var(--gn);padding:2px 0">$ ' + esc(c) + '</div>'; });
+    h += '</div></div>';
+  }
+  if (d.launch_checklist) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Launch Checklist</div>';
+    (d.launch_checklist || []).forEach(function(s, i) {
+      h += '<div class="step-item"><div class="step-num">' + (i+1) + '</div><div class="step-text">' + esc(s) + '</div></div>';
+    });
+    h += '</div>';
+  }
+  if (d.estimated_build_time) h += '<div style="margin-top:12px;text-align:center;font-family:var(--mn);font-size:12px;color:var(--ac)">&#9201; Build time: ' + esc(d.estimated_build_time) + ' · First $: ' + esc(d.first_dollar_timeline || '?') + '</div>';
+  return h;
+}
+
+function renderMonetization(d) {
+  var h = '';
+  if (d.primary_model) h += '<div style="text-align:center;margin-bottom:14px"><span style="background:var(--ac-dim);border:1px solid var(--ac-bd);padding:6px 16px;border-radius:20px;font-family:var(--mn);font-size:11px;color:var(--ac);font-weight:600">' + esc(d.primary_model) + '</span></div>';
+  var ps = d.pricing_strategy || {};
+  if (ps.tiers) {
+    h += '<div style="margin-bottom:16px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:8px">Pricing Tiers</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">';
+    (ps.tiers || []).forEach(function(t, i) {
+      var highlight = i === 1 ? 'border-color:var(--ac)' : '';
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:16px;' + highlight + '">'
+        + '<div style="font-weight:700;font-size:14px;color:var(--tx)">' + esc(t.name) + '</div>'
+        + '<div style="font-size:24px;font-weight:800;color:var(--ac);margin:8px 0">' + esc(t.price) + '</div>'
+        + '<div style="font-size:10px;color:var(--mt);margin-bottom:8px">' + esc(t.purpose || '') + '</div>';
+      (t.features || []).forEach(function(f) { h += '<div style="font-size:11px;color:var(--dm);padding:2px 0">✓ ' + esc(f) + '</div>'; });
+      if (t.limits) h += '<div style="font-size:10px;color:var(--mt);margin-top:6px;font-style:italic">' + esc(t.limits) + '</div>';
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
+  if (d.revenue_streams) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Revenue Streams</div>';
+    (d.revenue_streams || []).forEach(function(s) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px;display:flex;gap:12px;align-items:center">'
+        + '<div style="font-size:18px;font-weight:800;color:var(--ac);min-width:50px;text-align:center">' + esc(s.percentage_of_revenue || '?') + '</div>'
+        + '<div><div style="font-weight:600;font-size:13px">' + esc(s.stream) + '</div><div style="font-size:11px;color:var(--dm)">' + esc(s.description || '') + '</div></div></div>';
+    });
+    h += '</div>';
+  }
+  var pp = d.paywall_playbook || {};
+  if (pp.upgrade_prompts) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Paywall Strategy</div>'
+      + '<div style="font-size:12px;color:var(--dm);margin-bottom:8px">' + esc(pp.free_to_paid_trigger || '') + '</div>';
+    if (pp.what_to_gate) { h += '<div class="tag-list" style="margin-bottom:6px">'; (pp.what_to_gate || []).forEach(function(g) { h += '<span class="tag" style="border-color:var(--rd-bd);color:var(--rd)">&#128274; ' + esc(g) + '</span>'; }); h += '</div>'; }
+    if (pp.what_stays_free) { h += '<div class="tag-list">'; (pp.what_stays_free || []).forEach(function(f) { h += '<span class="tag advantage">&#128275; ' + esc(f) + '</span>'; }); h += '</div>'; }
+    h += '</div>';
+  }
+  var rp = d.revenue_projections || {};
+  if (rp.month_1) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Revenue Projections</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">';
+    [['M1', rp.month_1], ['M3', rp.month_3], ['M6', rp.month_6], ['M12', rp.month_12]].forEach(function(pair) {
+      if (!pair[1]) return;
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;text-align:center">'
+        + '<div style="font-family:var(--mn);font-size:9px;color:var(--mt)">' + pair[0] + '</div>'
+        + '<div style="font-size:16px;font-weight:800;color:var(--gn)">' + esc(pair[1].mrr || '?') + '</div>'
+        + '<div style="font-size:10px;color:var(--dm)">' + (pair[1].paying || '?') + ' paying</div></div>';
+    });
+    h += '</div></div>';
+  }
+  if (d.quick_wins) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Quick Wins to First $</div>';
+    (d.quick_wins || []).forEach(function(w, i) {
+      h += '<div class="step-item"><div class="step-num" style="background:var(--gn-dim);border-color:var(--gn-bd);color:var(--gn)">' + (i+1) + '</div><div class="step-text">' + esc(w) + '</div></div>';
+    });
+    h += '</div>';
+  }
+  return h;
+}
+
+function renderPricingIntel(d) {
+  var h = '';
+  if (d.competitor_prices) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Competitor Prices</div>';
+    (d.competitor_prices || []).forEach(function(c) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center">'
+        + '<span style="font-weight:700;font-size:13px">' + esc(c.name) + '</span>'
+        + '<span style="font-family:var(--mn);font-size:13px;font-weight:700;color:var(--ac)">' + esc(c.price) + '</span></div>'
+        + '<div style="font-size:11px;color:var(--dm);margin-top:4px">' + esc(c.model || '') + '</div>'
+        + '<div style="font-size:11px;color:var(--or);margin-top:2px">Gap: ' + esc(c.weakness || '') + '</div></div>';
+    });
+    h += '</div>';
+  }
+  var op = d.optimal_price || {};
+  if (op.monthly) {
+    h += '<div style="margin-bottom:14px;text-align:center;background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:12px;padding:20px">'
+      + '<div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Recommended Price</div>'
+      + '<div style="font-size:32px;font-weight:800;color:var(--ac)">' + esc(op.monthly) + '</div>'
+      + (op.annual ? '<div style="font-size:13px;color:var(--dm);margin-top:4px">Annual: ' + esc(op.annual) + '</div>' : '')
+      + '<div style="font-size:12px;color:var(--dm);margin-top:8px;font-style:italic">' + esc(op.reasoning || '') + '</div></div>';
+  }
+  var sens = d.price_sensitivity || {};
+  if (sens.sweet_spot) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Price Sensitivity</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
+      + '<div style="background:var(--rd-dim);border:1px solid var(--rd-bd);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--rd);font-weight:600">TOO CHEAP</div><div style="font-size:12px;color:var(--dm)">' + esc(sens.too_cheap || '') + '</div></div>'
+      + '<div style="background:var(--gn-dim);border:1px solid var(--gn-bd);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--gn);font-weight:600">SWEET SPOT</div><div style="font-size:12px;color:var(--dm)">' + esc(sens.sweet_spot || '') + '</div></div>'
+      + '<div style="background:var(--or-dim);border:1px solid var(--or-bd);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--or);font-weight:600">TOO EXPENSIVE</div><div style="font-size:12px;color:var(--dm)">' + esc(sens.too_expensive || '') + '</div></div>'
+      + '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--bl);font-weight:600">ENTERPRISE</div><div style="font-size:12px;color:var(--dm)">' + esc(sens.enterprise_threshold || '') + '</div></div>'
+      + '</div></div>';
+  }
+  if (d.revenue_at_price_points) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Revenue Scenarios</div>';
+    (d.revenue_at_price_points || []).forEach(function(p) {
+      var vc = (p.verdict || '').toLowerCase().includes('best') ? 'var(--gn)' : 'var(--dm)';
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">'
+        + '<div><span style="font-weight:700;font-size:14px;color:var(--ac)">' + esc(p.price) + '</span>'
+        + '<span style="font-size:11px;color:var(--dm);margin-left:8px">' + esc(p.expected_conversion || '') + ' conversion</span></div>'
+        + '<div style="text-align:right"><div style="font-weight:700;color:var(--gn)">' + esc(p.at_1000_visitors || '') + '</div>'
+        + '<div style="font-size:10px;color:' + vc + '">' + esc(p.verdict || '') + '</div></div></div>';
+    });
+    h += '</div>';
+  }
+  if (d.pricing_psychology) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Pricing Psychology</div><div class="tag-list">';
+    (d.pricing_psychology || []).forEach(function(t) { h += '<span class="tag advantage">' + esc(t) + '</span>'; });
+    h += '</div></div>';
+  }
+  return h;
+}
+
+function renderProductKit(d) {
+  var h = '';
+  if (d.product_name) {
+    h += '<div style="text-align:center;margin-bottom:18px"><div style="font-size:24px;font-weight:800;color:var(--ac)">' + esc(d.product_name) + '</div>'
+      + '<div style="font-size:14px;color:var(--dm);margin:6px 0">' + esc(d.one_liner || '') + '</div>';
+    if (d.elevator_pitch) h += '<div style="font-size:12px;color:var(--mt);max-width:500px;margin:8px auto;line-height:1.6;font-style:italic">"' + esc(d.elevator_pitch) + '"</div>';
+    h += '</div>';
+  }
+  if (d.positioning_statement) {
+    h += '<div style="background:var(--ac-dim);border:1px solid var(--ac-bd);border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;color:var(--tx);line-height:1.6;text-align:center">' + esc(d.positioning_statement) + '</div>';
+  }
+  var brand = d.brand || {};
+  if (brand.tagline_options) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Brand</div>'
+      + '<div class="tag-list">';
+    (brand.tagline_options || []).forEach(function(t) { h += '<span class="tag">' + esc(t) + '</span>'; });
+    h += '</div>';
+    if (brand.domain_suggestions) {
+      h += '<div style="margin-top:6px;font-size:11px;color:var(--dm)">Domains: ';
+      (brand.domain_suggestions || []).forEach(function(d, i) { h += (i > 0 ? ', ' : '') + '<span style="color:var(--ac)">' + esc(d) + '</span>'; });
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  var la = d.launch_assets || {};
+  if (la.twitter_launch_thread) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Launch Thread</div>';
+    (la.twitter_launch_thread || []).forEach(function(t) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:4px;position:relative">'
+        + '<div style="font-size:12px;color:var(--tx);line-height:1.5">' + esc(t) + '</div>'
+        + '<button class="copy-btn" onclick="copyText(this,\'' + escAttr(t) + '\')" style="position:absolute;top:6px;right:6px">Copy</button></div>';
+    });
+    h += '</div>';
+  }
+  if (la.product_hunt_tagline) {
+    h += '<div style="margin-bottom:14px;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px">'
+      + '<div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:4px">Product Hunt</div>'
+      + '<div style="font-size:14px;font-weight:700;color:var(--tx)">' + esc(la.product_hunt_tagline) + '</div>'
+      + '<div style="font-size:12px;color:var(--dm);margin-top:6px">' + esc(la.product_hunt_description || '') + '</div></div>';
+  }
+  if (d.sales_page_sections) {
+    h += '<div style="margin-bottom:14px"><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Sales Page Outline</div>';
+    (d.sales_page_sections || []).forEach(function(s) {
+      h += '<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:6px">'
+        + '<div style="font-weight:700;font-size:12px;color:var(--ac);margin-bottom:4px">' + esc(s.section || '') + '</div>';
+      if (s.headline) h += '<div style="font-size:14px;font-weight:600;color:var(--tx)">' + esc(s.headline) + '</div>';
+      if (s.content) h += '<div style="font-size:12px;color:var(--dm);margin-top:4px">' + esc(s.content) + '</div>';
+      if (s.cta) h += '<div style="font-size:11px;color:var(--gn);margin-top:4px;font-weight:600">' + esc(s.cta) + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  var ms = d.monetization_summary || {};
+  if (ms.first_dollar_plan) {
+    h += '<div style="margin-bottom:14px;background:var(--gn-dim);border:1px solid var(--gn-bd);border-radius:10px;padding:16px">'
+      + '<div style="font-family:var(--mn);font-size:10px;color:var(--gn);text-transform:uppercase;margin-bottom:6px">Path to Revenue</div>'
+      + '<div style="font-size:13px;color:var(--tx);margin-bottom:4px"><strong>Launch price:</strong> ' + esc(ms.launch_price || '') + '</div>'
+      + '<div style="font-size:13px;color:var(--tx);margin-bottom:4px"><strong>First dollar:</strong> ' + esc(ms.first_dollar_plan || '') + '</div>'
+      + '<div style="font-size:13px;color:var(--tx);margin-bottom:4px"><strong>Month 1 target:</strong> ' + esc(ms.month_1_target || '') + '</div>'
+      + '<div style="font-size:13px;color:var(--tx)"><strong>Scale to $10K:</strong> ' + esc(ms.scaling_path || '') + '</div></div>';
+  }
+  if (d.pre_launch_checklist) {
+    h += '<div><div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;margin-bottom:6px">Pre-Launch Checklist</div>';
+    (d.pre_launch_checklist || []).forEach(function(s, i) {
+      var pc = s.priority === 'P0' ? 'var(--rd)' : s.priority === 'P1' ? 'var(--or)' : 'var(--mt)';
+      h += '<div class="step-item"><div class="step-num" style="border-color:' + pc + ';color:' + pc + '">' + (i+1) + '</div><div class="step-text">' + esc(s.task || '') + ' <span style="font-size:10px;color:var(--mt)">(' + esc(s.time || '?') + ')</span></div></div>';
+    });
+    h += '</div>';
+  }
   return h;
 }
 
