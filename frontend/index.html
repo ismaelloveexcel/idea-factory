@@ -996,13 +996,13 @@ function renderResults(r) {
     + '<div style="width:100%;margin-top:10px;border-top:1px solid var(--bd);padding-top:10px">'
     + '<div style="font-family:var(--mn);font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Deep Dive Tools</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'pivot-suggestions\',\'Pivot Suggestions\')">&#128260; Pivots</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'interview-script\',\'Interview Script\')">&#127897; Interview Script</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'gtm-playbook\',\'Go-to-Market Playbook\')">&#127937; GTM Playbook</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'swot\',\'SWOT Analysis\')">&#9878; SWOT</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'unit-economics\',\'Unit Economics\')">&#128200; Unit Economics</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'twitter-thread\',\'Twitter Thread\')">&#128038; Twitter Thread</button>'
-    + '<button class="act-btn outline" onclick="deepDive(\'' + escAttr(id) + '\',\'landing-page\',\'Landing Page\')">&#127760; Landing Page</button>'
+    + '<button class="act-btn outline" aria-label="Pivot Suggestions" onclick="deepDive(\'' + escAttr(id) + '\',\'pivot-suggestions\',\'Pivot Suggestions\')">&#128260; Pivots</button>'
+    + '<button class="act-btn outline" aria-label="Interview Script" onclick="deepDive(\'' + escAttr(id) + '\',\'interview-script\',\'Interview Script\')">&#127897; Interview Script</button>'
+    + '<button class="act-btn outline" aria-label="Go-to-Market Playbook" onclick="deepDive(\'' + escAttr(id) + '\',\'gtm-playbook\',\'Go-to-Market Playbook\')">&#127937; GTM Playbook</button>'
+    + '<button class="act-btn outline" aria-label="SWOT Analysis" onclick="deepDive(\'' + escAttr(id) + '\',\'swot\',\'SWOT Analysis\')">&#9878; SWOT</button>'
+    + '<button class="act-btn outline" aria-label="Unit Economics" onclick="deepDive(\'' + escAttr(id) + '\',\'unit-economics\',\'Unit Economics\')">&#128200; Unit Economics</button>'
+    + '<button class="act-btn outline" aria-label="Twitter Thread" onclick="deepDive(\'' + escAttr(id) + '\',\'twitter-thread\',\'Twitter Thread\')">&#128038; Twitter Thread</button>'
+    + '<button class="act-btn outline" aria-label="Landing Page" onclick="deepDive(\'' + escAttr(id) + '\',\'landing-page\',\'Landing Page\')">&#127760; Landing Page</button>'
     + '</div></div>';
 
   loadHistory();

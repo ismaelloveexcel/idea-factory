@@ -753,6 +753,7 @@ async def root():
 @app.get("/api/health")
 def health():
     has_claude = bool(ANTHROPIC_API_KEY)
+    using_fallbacks = has_claude and not (PERPLEXITY_API_KEY and OPENAI_API_KEY and GROK_API_KEY)
     return {
         "status": "ok", "version": "4.0.0",
         "engines": {
@@ -762,7 +763,7 @@ def health():
             "grok": bool(GROK_API_KEY) or has_claude,
         },
         "mode": "full" if has_claude else "limited",
-        "note": "Claude powers all engines when other API keys are missing" if has_claude and not (PERPLEXITY_API_KEY and OPENAI_API_KEY and GROK_API_KEY) else None,
+        "note": "Claude powers all engines when other API keys are missing" if using_fallbacks else None,
     }
 
 
@@ -1614,7 +1615,7 @@ class CompareRequest(BaseModel):
 async def compare_ideas(data: CompareRequest, db: Session = Depends(get_db)):
     """Compare 2-3 validated ideas side by side with a winner recommendation."""
     if len(data.idea_ids) < 2 or len(data.idea_ids) > 5:
-        raise HTTPException(400, "Provide 2-5 idea IDs to compare")
+        raise HTTPException(400, "Provide between 2 and 5 idea IDs to compare")
     if not ANTHROPIC_API_KEY:
         raise HTTPException(503, "AI backend not configured")
 
@@ -1683,7 +1684,7 @@ class BatchRequest(BaseModel):
 async def batch_validate(data: BatchRequest):
     """Quick-score multiple ideas and rank them (lighter than full analysis)."""
     if len(data.ideas) < 2 or len(data.ideas) > 10:
-        raise HTTPException(400, "Provide 2-10 ideas to batch validate")
+        raise HTTPException(400, "Provide between 2 and 10 ideas to batch validate")
     if not ANTHROPIC_API_KEY:
         raise HTTPException(503, "AI backend not configured")
 
