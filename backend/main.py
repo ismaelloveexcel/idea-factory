@@ -1,5 +1,5 @@
 """
-Idea Factory v4.0 — Multi-AI Idea Validator & App Builder
+Idea Factory v5.0 — Multi-AI Idea Validator & App Builder
 Personal tool. Type an idea → 4 AIs research & score it → generate everything to build & sell.
 
 Pipeline:
@@ -1288,8 +1288,9 @@ MUST INCLUDE these sections:
 5. Pricing section with 2-3 tiers (Free, Pro, Business)
 6. Testimonials / Social proof section (3 placeholder quotes)
 7. **WORKING EMAIL WAITLIST FORM** — input field + submit button + counter showing "X people joined"
-   The form should use JavaScript to store emails in localStorage AND show a success message.
-   Include a counter that persists across page loads.
+   The form should POST to /api/email/capture with JSON body {{"email": email, "source": "waitlist"}}
+   On success, show a thank-you message. Include a visual counter (start at a reasonable number like 127).
+   Use fetch() for the API call with proper error handling.
 8. FAQ section (5 questions)
 9. Footer with links
 
