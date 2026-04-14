@@ -30,11 +30,11 @@ def apply_kill_rules(analysis: dict, constraints: dict, research: dict | None) -
 
     # Rule 3: estimated build time > available_hours
     try:
-        build_time = float(analysis.get("build_time_hours", 0) or 0)
+        build_time = float(analysis.get("build_time_hours") or 0)
     except (TypeError, ValueError):
         build_time = 0
     try:
-        available = float(constraints.get("available_hours", 0) or 0)
+        available = float(constraints.get("available_hours") or 0)
     except (TypeError, ValueError):
         available = 0
     if build_time > 0 and available > 0 and build_time > available:

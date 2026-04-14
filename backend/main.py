@@ -40,9 +40,8 @@ load_dotenv()
 
 
 # ─── CONFIG ───────────────────────────────────────────
-_DEFAULT_DB_DIR = "/app/data" if os.path.isdir("/app/data") else "."
-if _DEFAULT_DB_DIR == "/app/data":
-    os.makedirs(_DEFAULT_DB_DIR, exist_ok=True)
+_DEFAULT_DB_DIR = "/app/data" if os.path.isdir("/app") else "."
+os.makedirs(_DEFAULT_DB_DIR, exist_ok=True)
 _DB_PATH = os.path.join(_DEFAULT_DB_DIR, "idea_factory.db")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DB_PATH}")
 if DATABASE_URL.startswith("postgres://"):
