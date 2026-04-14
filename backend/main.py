@@ -63,6 +63,9 @@ PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 
+# SSE heartbeat interval (seconds)
+SSE_HEARTBEAT_INTERVAL = 12
+
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
@@ -224,10 +227,13 @@ def parse_json_response(raw: str) -> dict:
     # Step 1: strip markdown fences
     if clean.startswith("```"):
         lines = clean.split("\n")
-        # Remove first line (```json or ```) and last line (```)
-        start = 1
-        end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
-        clean = "\n".join(lines[start:end]).strip()
+        if len(lines) >= 2:
+            # Remove first line (```json or ```) and last line (```)
+            start = 1
+            end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+            clean = "\n".join(lines[start:end]).strip()
+        else:
+            clean = clean.lstrip("`").strip()
 
     # Step 2: try json.loads
     try:
@@ -760,7 +766,7 @@ async def analyze_idea(request: Request):
 
     async def stream():
         original_idea = idea_text
-        heartbeat_interval = 12  # seconds
+        heartbeat_interval = SSE_HEARTBEAT_INTERVAL
         last_heartbeat = asyncio.get_event_loop().time()
 
         async def maybe_heartbeat():
