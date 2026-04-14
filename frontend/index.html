@@ -394,6 +394,37 @@ body {
     <div class="input-hint">Describe it like you're telling a friend. AI does all the research.</div>
     <textarea id="ideaInput" rows="3" placeholder="e.g. An app that finds the cheapest flight by tracking prices across 50 airlines and alerts you when to buy..."></textarea>
 
+    <!-- Operator Constraints -->
+    <div style="margin-top:14px;padding:16px;background:var(--sf2);border:1px solid var(--bd);border-radius:10px">
+      <div style="font-family:var(--mn);font-size:10px;color:var(--mt);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Operator Constraints (required)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Available Hours</label>
+          <input type="number" id="cAvailableHours" value="40" min="1" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Cash Available ($)</label>
+          <input type="number" id="cCashAvailable" value="500" min="0" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Audience Size</label>
+          <input type="number" id="cAudienceSize" value="100" min="0" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Skills (comma-separated)</label>
+          <input type="text" id="cSkills" value="python, javascript" placeholder="python, design, marketing" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Channels (comma-separated)</label>
+          <input type="text" id="cChannels" value="twitter, reddit" placeholder="twitter, reddit, email" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--dm);display:block;margin-bottom:3px">Reachable People (comma-separated)</label>
+          <input type="text" id="cReachablePeople" value="indie hackers, developers" placeholder="founders, designers, devs" style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:8px;font-size:13px;outline:none">
+        </div>
+      </div>
+    </div>
+
     <div class="mode-selector">
       <button class="mode-btn active" data-mode="validate" onclick="setMode(this)">
         <span class="mode-emoji">&#128161;</span>
@@ -646,10 +677,32 @@ async function analyze() {
   }
 
   try {
+    const constraints = {
+      available_hours: parseInt(document.getElementById('cAvailableHours').value) || 40,
+      skills: document.getElementById('cSkills').value.split(',').map(s => s.trim()).filter(Boolean),
+      audience_size: parseInt(document.getElementById('cAudienceSize').value) || 0,
+      channels: document.getElementById('cChannels').value.split(',').map(s => s.trim()).filter(Boolean),
+      cash_available: parseInt(document.getElementById('cCashAvailable').value) || 0,
+      reachable_people: document.getElementById('cReachablePeople').value.split(',').map(s => s.trim()).filter(Boolean),
+    };
+    if (!constraints.reachable_people.length) {
+      toast('Reachable people is required — who can you actually reach?');
+      isAnalyzing = false;
+      btn.disabled = false;
+      document.getElementById('btnText').textContent = 'Validate This Idea';
+      return;
+    }
+    if (!constraints.channels.length) {
+      toast('At least one distribution channel is required');
+      isAnalyzing = false;
+      btn.disabled = false;
+      document.getElementById('btnText').textContent = 'Validate This Idea';
+      return;
+    }
     const resp = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idea, mode: currentMode })
+      body: JSON.stringify({ idea, mode: currentMode, constraints })
     });
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -675,6 +728,7 @@ async function analyze() {
 }
 
 function handleSSE(evt) {
+  if (evt.type === 'heartbeat') return; // ignore heartbeat events
   if (evt.type === 'step') {
     const aiMap = { perplexity: 'perplexity', grok: 'grok', claude: 'claude', gpt: 'gpt', mode: 'mode' };
     const key = aiMap[evt.ai];
@@ -721,8 +775,8 @@ function renderResults(r) {
   // Verdict
   const verdict = (r.verdict || 'MAYBE').toUpperCase();
   const vb = document.getElementById('verdictBadge');
-  vb.textContent = verdict === 'BUILD' ? 'BUILD IT' : verdict === 'SKIP' ? 'SKIP' : 'MAYBE';
-  vb.className = 'verdict-badge ' + (verdict === 'BUILD' ? 'build' : verdict === 'SKIP' ? 'skip' : 'maybe');
+  vb.textContent = verdict === 'BUILD' ? 'BUILD IT' : verdict === 'KILL' ? 'KILL' : 'MAYBE';
+  vb.className = 'verdict-badge ' + (verdict === 'BUILD' ? 'build' : verdict === 'KILL' ? 'skip' : 'maybe');
   document.getElementById('verdictConcept').textContent = r.concept || '';
   document.getElementById('verdictSummary').textContent = r.summary || '';
 
@@ -751,9 +805,9 @@ function renderResults(r) {
   const srcs = (r.ai_sources || []).map(s => s.toUpperCase()).join(' + ');
   document.getElementById('aiSources').textContent = srcs ? 'Powered by: ' + srcs : '';
 
-  // 4 Scores
+  // 5 Scores (deterministic model)
   const scores = r.scores || {};
-  const scoreNames = { pain: 'Pain Level', market: 'Market Size', execution: 'Ease of Building', timing: 'Timing' };
+  const scoreNames = { pain: 'Pain Level', market: 'Market Size', execution: 'Ease of Building', distribution: 'Distribution', feasibility: 'Feasibility' };
   document.getElementById('scoresGrid').innerHTML = Object.entries(scoreNames).map(([k, label]) => {
     const v = scores[k] || 0;
     const c = v >= 70 ? 'var(--gn)' : v >= 40 ? 'var(--or)' : 'var(--rd)';
@@ -870,9 +924,7 @@ function renderResults(r) {
   // Actions
   const id = r.id || '';
   document.getElementById('actionsBar').innerHTML = `
-    <a class="act-btn primary" href="/api/idea/${encodeURIComponent(id)}/pdf" target="_blank">Download PDF</a>
     <button class="act-btn outline" onclick="copyText(this,'${escAttr(r.share_url || '')}')">Copy Share Link</button>
-    <button class="act-btn outline" onclick="getBuildPlan('${escAttr(id)}')">Build Plan</button>
     <button class="act-btn outline" onclick="newIdea()">+ New Idea</button>`;
 
   loadHistory();
@@ -933,15 +985,6 @@ async function loadHistory() {
   } catch(e) {}
 }
 
-async function getBuildPlan(ideaId) {
-  toast('Generating build plan...');
-  try {
-    const r = await fetch('/api/idea/' + encodeURIComponent(ideaId) + '/premium-report');
-    const data = await r.json();
-    const w = window.open('', '_blank');
-    w.document.write('<html><head><title>Build Plan</title><style>body{background:#080808;color:#eee;font-family:"JetBrains Mono",monospace;padding:40px;font-size:13px;line-height:1.6}pre{white-space:pre-wrap}h1{color:#c8ff00}</style></head><body><h1>Build Plan</h1><pre>' + esc(JSON.stringify(data, null, 2)) + '</pre></body></html>');
-  } catch(e) { toast('Failed to generate plan'); }
-}
 </script>
 </body>
 </html>

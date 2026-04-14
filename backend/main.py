@@ -27,21 +27,36 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Query, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, Text, func, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+
+from kill_rules import apply_kill_rules
+from scoring import calculate_deterministic_score
+from decision_engine import compute_final_decision
 
 load_dotenv()
 
 
 # ─── CONFIG ───────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./idea_factory.db")
+_DEFAULT_DB_DIR = "/app/data" if os.path.isdir("/app") else "."
+os.makedirs(_DEFAULT_DB_DIR, exist_ok=True)
+_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "idea_factory.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DB_PATH}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "change-me-in-production")
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+# Phase 11: Admin security — fail on default secret in production
+_ENV_MODE = os.getenv("ENV", os.getenv("RAILWAY_ENVIRONMENT", "dev")).lower()
+if _ENV_MODE != "dev" and ADMIN_SECRET == "change-me-in-production":
+    raise RuntimeError(
+        "ADMIN_SECRET must be changed from default in production. "
+        "Set ADMIN_SECRET env var to a secure value."
+    )
 
 # AI API Keys
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -49,8 +64,18 @@ PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 
+# SSE heartbeat interval (seconds)
+SSE_HEARTBEAT_INTERVAL = 12
+
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
+# Phase 10: SQLite WAL mode for better concurrency
+if "sqlite" in DATABASE_URL:
+    with engine.connect() as _conn:
+        _conn.execute(text("PRAGMA journal_mode=WAL"))
+        _conn.commit()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -144,9 +169,40 @@ with engine.connect() as _conn:
 
 
 # ─── PYDANTIC MODELS ─────────────────────────────────
+class OperatorConstraints(BaseModel):
+    available_hours: int | float
+    skills: list[str] = []
+    audience_size: int | float = 0
+    channels: list[str] = []
+    cash_available: int | float = 0
+    reachable_people: list[str] = []
+
+    @field_validator("reachable_people")
+    @classmethod
+    def reachable_people_not_empty(cls, v):
+        if not v:
+            raise ValueError("reachable_people must not be empty")
+        return v
+
+    @field_validator("channels")
+    @classmethod
+    def channels_not_empty(cls, v):
+        if not v:
+            raise ValueError("channels must not be empty")
+        return v
+
+    @field_validator("available_hours")
+    @classmethod
+    def available_hours_positive(cls, v):
+        if v < 1:
+            raise ValueError("available_hours must be at least 1")
+        return v
+
+
 class IdeaInput(BaseModel):
     idea: str
     mode: str = "validate"  # validate, trendy, wild
+    constraints: OperatorConstraints
 
 class SignalUpdate(BaseModel):
     idea_id: str
@@ -181,17 +237,74 @@ def sse(event_type: str, data: dict) -> str:
 
 # ─── JSON PARSER ─────────────────────────────────────
 def parse_json_response(raw: str) -> dict:
+    """Parse JSON from AI response, stripping markdown fences and retrying."""
     clean = raw.strip()
+    # Step 1: strip markdown fences
     if clean.startswith("```"):
         lines = clean.split("\n")
-        clean = "\n".join(lines[1:-1])
+        if len(lines) >= 2:
+            # Remove first line (```json or ```) and last line (```)
+            start = 1
+            end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+            clean = "\n".join(lines[start:end]).strip()
+        else:
+            clean = clean.lstrip("`").strip()
+
+    # Step 2: try json.loads
     try:
         return json.loads(clean)
     except json.JSONDecodeError:
-        match = re.search(r'\{[\s\S]*\}', clean)
-        if match:
+        pass
+
+    # Step 3: try to extract JSON object from the text
+    match = re.search(r'\{[\s\S]*\}', clean)
+    if match:
+        try:
             return json.loads(match.group())
-        raise HTTPException(500, "Failed to parse AI response")
+        except json.JSONDecodeError:
+            pass
+
+    # Step 4: fallback minimal structure — DO NOT silently fail
+    raise ValueError(f"Failed to parse AI response as JSON. Raw (first 500 chars): {raw[:500]}")
+
+
+async def _parse_with_retry(raw: str, prompt_context: str = "") -> dict:
+    """Try to parse JSON; if fails, retry with a strict prompt to Claude."""
+    try:
+        return parse_json_response(raw)
+    except ValueError:
+        # Retry with strict prompt
+        if ANTHROPIC_API_KEY:
+            retry_prompt = (
+                "The following text was supposed to be valid JSON but failed to parse. "
+                "Extract the JSON object and return ONLY valid JSON, nothing else:\n\n"
+                f"{raw[:3000]}"
+            )
+            try:
+                retry_raw = await _call_claude(retry_prompt, 3000)
+                return parse_json_response(retry_raw)
+            except Exception:
+                pass
+
+        # Final fallback: minimal structure
+        return {
+            "concept": "Parse error — manual review needed",
+            "target_user": "Unknown",
+            "core_pain": "Unknown",
+            "value_promise": "Unknown",
+            "category": "Other",
+            "summary": "AI response could not be parsed. Please retry.",
+            "gate1": {"question": "Can you build a basic version in 7 days?", "answer": "NO", "reasoning": "Parse failed", "evidence": ""},
+            "gate2": {"question": "Will people pay $10+ on day one?", "answer": "NO", "reasoning": "Parse failed", "evidence": ""},
+            "gate3": {"question": "Is the pain bad enough people will switch now?", "answer": "NO", "reasoning": "Parse failed", "evidence": ""},
+            "pain_score": 0, "market_score": 0, "execution_score": 0,
+            "distribution_score": 0, "feasibility_score": 0, "build_time_hours": 0,
+            "regional_scores": [], "timing_analysis": {}, "moat_analysis": {},
+            "next_steps": [], "reddit_post": "", "x_post": "",
+            "offer": "", "price": "", "cta": "",
+            "kill_reason": "AI response parse failure",
+            "one_line_pitch": "",
+        }
 
 
 # ═════════════════════════════════════════════════════
@@ -200,34 +313,58 @@ def parse_json_response(raw: str) -> dict:
 
 async def _call_openai_api(base_url: str, api_key: str, model: str,
                             prompt: str, max_tokens: int = 2000) -> str:
-    """Generic OpenAI-compatible API caller (Perplexity, GPT, Grok)."""
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            f"{base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}",
-                     "Content-Type": "application/json"},
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": 0.7,
-            }
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+    """Generic OpenAI-compatible API caller with timeout and retry."""
+    timeout = httpx.Timeout(45.0)
+    last_err = None
+    for attempt in range(2):  # 1 initial + 1 retry
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}",
+                             "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": max_tokens,
+                        "temperature": 0.7,
+                    }
+                )
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"].strip()
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPStatusError) as e:
+            last_err = e
+            if attempt == 0:
+                await asyncio.sleep(1)
+                continue
+            raise
+    raise last_err  # type: ignore[misc]
 
 
 async def _call_claude(prompt: str, max_tokens: int = 3000) -> str:
-    """Call Claude via Anthropic SDK (async)."""
+    """Call Claude via Anthropic SDK (async) with timeout and retry."""
     if not ANTHROPIC_API_KEY:
         raise HTTPException(500, "ANTHROPIC_API_KEY not set")
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-    msg = await client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
+    client = anthropic.AsyncAnthropic(
+        api_key=ANTHROPIC_API_KEY,
+        timeout=httpx.Timeout(45.0),
     )
-    return msg.content[0].text.strip()
+    last_err = None
+    for attempt in range(2):  # 1 initial + 1 retry
+        try:
+            msg = await client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            last_err = e
+            if attempt == 0:
+                await asyncio.sleep(1)
+                continue
+            raise
+    raise last_err  # type: ignore[misc]
 
 
 # ── Perplexity: live web research ─────────────────────
@@ -302,7 +439,8 @@ Return ONLY valid JSON."""
 
 # ── Claude: deep strategic analysis ───────────────────
 async def analyze_with_claude(idea: str, research: Optional[dict],
-                               sentiment: Optional[dict]) -> dict:
+                               sentiment: Optional[dict],
+                               constraints: Optional[dict] = None) -> dict:
     research_block = ""
     if research:
         research_block = f"""
@@ -325,11 +463,25 @@ SOCIAL SENTIMENT (from X via Grok):
 - Summary: {sentiment.get('summary', '')}
 """
 
+    constraints_block = ""
+    if constraints:
+        constraints_block = f"""
+OPERATOR CONSTRAINTS:
+- Available hours: {constraints.get('available_hours', 'unknown')}
+- Skills: {json.dumps(constraints.get('skills', []))}
+- Audience size: {constraints.get('audience_size', 'unknown')}
+- Channels: {json.dumps(constraints.get('channels', []))}
+- Cash available: {constraints.get('cash_available', 'unknown')}
+- Reachable people: {json.dumps(constraints.get('reachable_people', []))}
+"""
+
     prompt = f"""You are a startup validation expert. Analyze this idea using ALL the research data below.
 Use simple, clear language anyone can understand. No jargon.
 
+IMPORTANT: You are providing DATA and SCORES only. Do NOT make a final decision — that is computed separately.
+
 IDEA: {idea}
-{research_block}{sentiment_block}
+{research_block}{sentiment_block}{constraints_block}
 
 Return this EXACT JSON (no markdown, no backticks):
 {{
@@ -338,29 +490,31 @@ Return this EXACT JSON (no markdown, no backticks):
   "core_pain": "The #1 problem this solves, in plain English",
   "value_promise": "What the user gets, in one sentence",
   "category": "SaaS, Marketplace, Tool, Service, Content, Hardware, Community, API, Plugin, or Other",
-  "summary": "2-3 sentences explaining your verdict. Plain English.",
+  "summary": "2-3 sentences explaining your analysis. Plain English.",
   "gate1": {{
     "question": "Can you build a basic version in 7 days?",
     "answer": "YES or NO",
     "reasoning": "Why, in 1-2 sentences",
-    "confidence": 80
+    "evidence": "Specific evidence supporting this answer (links, data points, examples)"
   }},
   "gate2": {{
     "question": "Will people pay $10+ on day one?",
     "answer": "YES or NO",
     "reasoning": "Why, in 1-2 sentences",
-    "confidence": 75
+    "evidence": "Specific evidence supporting this answer (links, data points, examples)"
   }},
   "gate3": {{
     "question": "Is the pain bad enough people will switch now?",
     "answer": "YES or NO",
     "reasoning": "Why, in 1-2 sentences",
-    "confidence": 70
+    "evidence": "Specific evidence supporting this answer (links, data points, examples)"
   }},
   "pain_score": 72,
   "market_score": 65,
   "execution_score": 80,
-  "timing_score": 68,
+  "distribution_score": 60,
+  "feasibility_score": 70,
+  "build_time_hours": 40,
   "who_needs_this": "Describe 2-3 types of people who need this most",
   "why_now": "What makes this the right time to build this",
   "competitors_analysis": "Brief analysis of competition (use research data if available)",
@@ -393,14 +547,20 @@ Return this EXACT JSON (no markdown, no backticks):
   "offer": "Clear 1-sentence offer",
   "price": "Suggested price point",
   "cta": "Call-to-action text",
-  "final_decision": "BUILD or SKIP or MAYBE",
-  "kill_reason": "If SKIP, one sentence why. Otherwise empty.",
   "one_line_pitch": "A catchy 1-line pitch for sharing"
 }}
 
-Return ONLY valid JSON."""
+SCORING GUIDELINES:
+- pain_score: How severe is the problem? (0-100)
+- market_score: How big is the addressable market? (0-100)
+- execution_score: How easy is it to build and launch? (0-100)
+- distribution_score: How easy is it to reach customers? (0-100)
+- feasibility_score: Given constraints and skills, how feasible? (0-100)
+- build_time_hours: Realistic hours to build an MVP
+
+Return ONLY valid JSON. Do NOT include a final_decision field."""
     raw = await _call_claude(prompt, 3500)
-    return parse_json_response(raw)
+    return await _parse_with_retry(raw, "claude_analysis")
 
 
 # ── GPT-4o: business model & revenue ──────────────────
@@ -453,30 +613,26 @@ Return ONLY valid JSON."""
 
 
 # ─── SCORE CALCULATOR ─────────────────────────────────
-def calculate_score(a: dict) -> int:
-    s = 0
-    if a.get("gate1", {}).get("answer", "").upper().startswith("YES"): s += 25
-    if a.get("gate2", {}).get("answer", "").upper().startswith("YES"): s += 25
-    if a.get("gate3", {}).get("answer", "").upper().startswith("YES"): s += 15
-    confs = [a.get(g, {}).get("confidence", 50) for g in ["gate1", "gate2", "gate3"]
-             if isinstance(a.get(g, {}).get("confidence"), (int, float))]
-    if confs:
-        s += int((sum(confs) / len(confs) / 100) * 15)
-    regions = a.get("regional_scores", [])
-    if regions:
-        s += int((max((r.get("demand", 0) for r in regions), default=0) / 100) * 10)
-    t = a.get("timing_analysis", {})
-    if t.get("readiness") == "NOW": s += 5
-    elif t.get("readiness") == "WAIT_3_MONTHS": s += 2
-    m = a.get("moat_analysis", {})
-    if m.get("defensibility") == "HIGH": s += 5
-    elif m.get("defensibility") == "MEDIUM": s += 3
-    return min(s, 100)
+# Scoring is now handled by scoring.py (calculate_deterministic_score)
+# Evidence enforcement is handled inline before scoring
+
+
+def enforce_evidence(analysis: dict) -> dict:
+    """Phase 4: If evidence is missing for a gate, downgrade to NO."""
+    for gate_key in ("gate1", "gate2", "gate3"):
+        gate = analysis.get(gate_key, {})
+        evidence = (gate.get("evidence") or "").strip()
+        if not evidence:
+            gate["answer"] = "NO"
+            gate["reasoning"] = ((gate.get("reasoning") or "") + " [Downgraded: no evidence provided]").strip()
+            gate["evidence"] = ""
+            analysis[gate_key] = gate
+    return analysis
 
 
 # ─── RESULT COMBINER ─────────────────────────────────
 def combine_results(idea_text, analysis, research, sentiment, business,
-                    idea_id, share_token, score):
+                    idea_id, share_token, score, verdict, kill_reason=""):
     sources = ["claude"]
     if research: sources.append("perplexity")
     if sentiment: sources.append("grok")
@@ -489,7 +645,7 @@ def combine_results(idea_text, analysis, research, sentiment, business,
         "target_user": analysis.get("target_user", ""),
         "core_pain": analysis.get("core_pain", ""),
         "value_promise": analysis.get("value_promise", ""),
-        "verdict": analysis.get("final_decision", "MAYBE"),
+        "verdict": verdict,
         "score": score,
         "summary": analysis.get("summary", ""),
         "category": analysis.get("category", "Other"),
@@ -497,13 +653,15 @@ def combine_results(idea_text, analysis, research, sentiment, business,
             "pain": analysis.get("pain_score", 0),
             "market": analysis.get("market_score", 0),
             "execution": analysis.get("execution_score", 0),
-            "timing": analysis.get("timing_score", 0),
+            "distribution": analysis.get("distribution_score", 0),
+            "feasibility": analysis.get("feasibility_score", 0),
         },
         "gates": {
             "build_fast": analysis.get("gate1", {}),
             "will_pay": analysis.get("gate2", {}),
             "urgent_pain": analysis.get("gate3", {}),
         },
+        "build_time_hours": analysis.get("build_time_hours", 0),
         "who_needs_this": analysis.get("who_needs_this", ""),
         "why_now": analysis.get("why_now", ""),
         "competitors_analysis": analysis.get("competitors_analysis", ""),
@@ -524,7 +682,7 @@ def combine_results(idea_text, analysis, research, sentiment, business,
         },
         "ai_sources": sources,
         "share_url": f"{BASE_URL}/public/idea/{share_token}",
-        "kill_reason": analysis.get("kill_reason", ""),
+        "kill_reason": kill_reason,
     }
 
 
@@ -609,10 +767,37 @@ async def analyze_idea(request: Request):
     if not idea_text:
         raise HTTPException(400, "Tell me your idea — even a rough sentence works")
 
+    # Phase 1: Validate constraints
+    constraints_raw = body.get("constraints")
+    if not constraints_raw or not isinstance(constraints_raw, dict):
+        raise HTTPException(400, "constraints object is required")
+
+    try:
+        constraints_model = OperatorConstraints(**constraints_raw)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid constraints: {e}")
+
+    constraints = constraints_model.model_dump()
+
     async def stream():
         original_idea = idea_text
+        heartbeat_interval = SSE_HEARTBEAT_INTERVAL
+        loop = asyncio.get_running_loop()
+        last_heartbeat = loop.time()
+
+        async def maybe_heartbeat():
+            nonlocal last_heartbeat
+            now = loop.time()
+            if now - last_heartbeat >= heartbeat_interval:
+                last_heartbeat = now
+                return sse("heartbeat", {})
+            return ""
 
         try:
+            # ── Check disconnect ──────────────────────
+            if await request.is_disconnected():
+                return
+
             # ── Mode Transform (trendy/wild) ─────────────────
             if mode != "validate":
                 mode_label = "Remixing with trending markets..." if mode == "trendy" else "Generating a wild twist..."
@@ -634,6 +819,13 @@ async def analyze_idea(request: Request):
                 research_with_perplexity(working_idea),
                 scan_with_grok(working_idea),
             )
+
+            hb = await maybe_heartbeat()
+            if hb:
+                yield hb
+
+            if await request.is_disconnected():
+                return
 
             if research:
                 n = len(research.get("competitors", []))
@@ -657,9 +849,16 @@ async def analyze_idea(request: Request):
                                "label": "Building business model & revenue projections..."})
 
             analysis, business = await asyncio.gather(
-                analyze_with_claude(working_idea, research, sentiment),
+                analyze_with_claude(working_idea, research, sentiment, constraints),
                 model_with_gpt(working_idea, research, sentiment),
             )
+
+            hb = await maybe_heartbeat()
+            if hb:
+                yield hb
+
+            if await request.is_disconnected():
+                return
 
             yield sse("step", {"ai": "claude", "status": "done",
                                "summary": "Analysis complete"})
@@ -670,13 +869,27 @@ async def analyze_idea(request: Request):
                 yield sse("step", {"ai": "gpt", "status": "skipped",
                                    "summary": "No API key — skipped"})
 
-            # ── Step 3: Score & Save ─────────────────────────
+            # ── Phase 4: Enforce evidence ─────────────────
+            analysis = enforce_evidence(analysis)
+
+            # ── Phase 2: Apply kill rules (PRE-SCORING) ───
+            kill_result = apply_kill_rules(analysis, constraints, research)
+
+            # ── Phase 3: Deterministic scoring ────────────
+            score = calculate_deterministic_score(analysis)
+
+            # ── Phase 5: Final decision engine ────────────
+            verdict = compute_final_decision(score, kill_result)
+            kill_reason = kill_result["reason"] if kill_result else ""
+
+            # ── Step 3: Combine & Save ───────────────────
             idea_id = str(uuid.uuid4())[:8]
             share_token = secrets.token_urlsafe(12)
-            score = calculate_score(analysis)
             result = combine_results(working_idea, analysis, research, sentiment,
-                                     business, idea_id, share_token, score)
+                                     business, idea_id, share_token, score,
+                                     verdict, kill_reason)
             result["mode"] = mode
+            result["constraints"] = constraints
             if mode != "validate":
                 result["original_idea"] = original_idea
 
@@ -699,7 +912,7 @@ async def analyze_idea(request: Request):
                     offer=analysis.get("offer", ""),
                     price=analysis.get("price", ""),
                     cta=analysis.get("cta", ""),
-                    final_decision=analysis.get("final_decision", "MAYBE"),
+                    final_decision=verdict,
                     score=score,
                     ai_response=result,
                     is_public=True,
@@ -735,6 +948,7 @@ async def analyze_idea(request: Request):
 
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
+                                      "Connection": "keep-alive",
                                       "X-Accel-Buffering": "no"})
 
 
@@ -803,268 +1017,9 @@ async def capture_email(data: EmailCaptureInput, db: Session = Depends(get_db)):
 
 
 # ═════════════════════════════════════════════════════
-#  PDF REPORT
+#  REMOVED: PDF, Premium Report, Landing Page, Twitter Thread
+#  (Phase 6: Keep system focused on idea → decision)
 # ═════════════════════════════════════════════════════
-@app.get("/api/idea/{idea_id}/pdf")
-async def pdf_report(idea_id: str, db: Session = Depends(get_db)):
-    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
-    if not idea:
-        raise HTTPException(404, "Idea not found")
-    idea.view_count = (idea.view_count or 0) + 1
-    db.commit()
-
-    from fpdf import FPDF
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=20)
-    def safe(t):
-        if not t: return "N/A"
-        return str(t).encode("latin-1", "ignore").decode("latin-1")
-
-    # Cover
-    pdf.add_page()
-    pdf.set_fill_color(8, 8, 8)
-    pdf.rect(0, 0, 210, 297, "F")
-    pdf.set_text_color(200, 255, 0)
-    pdf.set_font("Helvetica", "B", 32)
-    pdf.ln(60)
-    pdf.cell(0, 15, "IDEA FACTORY", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 14)
-    pdf.set_text_color(180, 180, 180)
-    pdf.cell(0, 10, "Multi-AI Validation Report", ln=True, align="C")
-    pdf.ln(30)
-    pdf.set_text_color(239, 239, 239)
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.multi_cell(0, 10, safe(idea.concept or "Untitled"), align="C")
-    pdf.ln(10)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 8, safe(f"Score: {idea.score}/100  |  Verdict: {idea.final_decision}"), ln=True, align="C")
-    sources = []
-    if idea.ai_response and isinstance(idea.ai_response, dict):
-        sources = idea.ai_response.get("ai_sources", ["claude"])
-    pdf.ln(8)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, safe(f"Powered by: {', '.join(s.upper() for s in sources)}"), ln=True, align="C")
-
-    # Summary
-    pdf.add_page()
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(0, 0, 210, 297, "F")
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 12, "Summary", ln=True)
-    pdf.ln(8)
-    for lbl, val in [("Concept", idea.concept), ("Who Needs This", idea.target_user),
-                     ("Biggest Problem", idea.core_pain), ("What They Get", idea.value_promise),
-                     ("Category", idea.category), ("Score", f"{idea.score}/100")]:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(100, 100, 100)
-        pdf.cell(45, 8, lbl.upper())
-        pdf.set_font("Helvetica", "", 11)
-        pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(0, 8, safe(str(val) if val else "N/A"))
-        pdf.ln(2)
-
-    # Gates
-    pdf.ln(8)
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 12, "3 Key Questions", ln=True)
-    pdf.ln(8)
-    for name, result in [("Can you build it fast?", idea.g1r),
-                          ("Will people pay?", idea.g2r),
-                          ("Is it urgent?", idea.g3r)]:
-        rs = str(result) if result else "N/A"
-        ok = rs.upper().startswith("YES")
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(0, 8, name, ln=True)
-        if ok: pdf.set_text_color(0, 160, 80)
-        else: pdf.set_text_color(220, 50, 50)
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(20, 7, "YES" if ok else "NO")
-        pdf.set_text_color(80, 80, 80)
-        pdf.set_font("Helvetica", "", 10)
-        parts = rs.split("\u2014", 1)
-        pdf.multi_cell(0, 7, safe(parts[1].strip() if len(parts) > 1 else rs))
-        pdf.ln(4)
-
-    # Content
-    pdf.add_page()
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.cell(0, 12, "Ready-to-Post Content", ln=True)
-    pdf.ln(8)
-    for lbl, val in [("Reddit Post", idea.reddit), ("Tweet", idea.x_post),
-                     ("Offer", idea.offer), ("Price", idea.price), ("CTA", idea.cta)]:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 8, lbl.upper(), ln=True)
-        pdf.set_font("Helvetica", "", 11)
-        pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(0, 7, safe(str(val) if val else "N/A"))
-        pdf.ln(4)
-
-    # Competitors from Perplexity
-    if idea.perplexity_research and isinstance(idea.perplexity_research, dict):
-        comps = idea.perplexity_research.get("competitors", [])
-        if comps:
-            pdf.add_page()
-            pdf.set_font("Helvetica", "B", 20)
-            pdf.set_text_color(30, 30, 30)
-            pdf.cell(0, 12, "Competitors Found", ln=True)
-            pdf.ln(8)
-            for c in comps:
-                pdf.set_font("Helvetica", "B", 12)
-                pdf.cell(0, 8, safe(c.get("name", "?")), ln=True)
-                pdf.set_font("Helvetica", "", 10)
-                pdf.set_text_color(80, 80, 80)
-                pdf.cell(0, 6, safe(f"Price: {c.get('price', '?')}  |  Weakness: {c.get('weakness', '?')}"), ln=True)
-                pdf.set_text_color(30, 30, 30)
-                pdf.ln(4)
-
-    # Business model from GPT
-    if idea.gpt_business and isinstance(idea.gpt_business, dict):
-        biz = idea.gpt_business
-        pdf.add_page()
-        pdf.set_font("Helvetica", "B", 20)
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(0, 12, "Business Model", ln=True)
-        pdf.ln(8)
-        for lbl, val in [("Type", biz.get("business_type")),
-                         ("Price", biz.get("suggested_price")),
-                         ("Year 1", biz.get("year1_potential")),
-                         ("Break Even", f"Month {biz.get('breakeven_month', '?')}"),
-                         ("Funding", biz.get("funding_needed"))]:
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(45, 8, lbl.upper())
-            pdf.set_font("Helvetica", "", 11)
-            pdf.set_text_color(30, 30, 30)
-            pdf.multi_cell(0, 8, safe(str(val) if val else "N/A"))
-            pdf.ln(2)
-
-    buf = io.BytesIO(pdf.output())
-    buf.seek(0)
-    fn = f"idea_factory_{idea.id}.pdf"
-    return StreamingResponse(buf, media_type="application/pdf",
-                             headers={"Content-Disposition": f'attachment; filename="{fn}"'})
-
-
-# ═════════════════════════════════════════════════════
-#  PREMIUM FEATURES (no paywall)
-# ═════════════════════════════════════════════════════
-@app.get("/api/idea/{idea_id}/premium-report")
-async def premium_report(idea_id: str, db: Session = Depends(get_db)):
-    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
-    if not idea:
-        raise HTTPException(404, "Idea not found")
-    if idea.blueprint and idea.revenue_sim:
-        return {"idea_id": idea_id, "blueprint": idea.blueprint,
-                "revenue_sim": idea.revenue_sim, "mvp_plan": idea.mvp_plan,
-                "distribution_plan": idea.distribution_plan}
-
-    prompt = f"""Generate a build plan for this validated idea. Simple language.
-
-IDEA: {idea.concept}
-TARGET: {idea.target_user}
-PAIN: {idea.core_pain}
-SCORE: {idea.score}/100
-
-Return ONLY JSON:
-{{
-  "blueprint": {{
-    "product_name": "Suggested name",
-    "tagline": "10-word tagline",
-    "tech_stack": ["tech1", "tech2", "tech3"],
-    "mvp_features": ["f1", "f2", "f3", "f4", "f5"],
-    "day1_actions": ["a1", "a2", "a3"],
-    "week1_milestones": ["m1", "m2", "m3"],
-    "pricing_model": "How to price",
-    "competitive_advantage": "What makes it hard to copy"
-  }},
-  "revenue_sim": {{
-    "month1": {{"users": 10, "revenue": 290, "costs": 50}},
-    "month3": {{"users": 50, "revenue": 1450, "costs": 150}},
-    "month6": {{"users": 200, "revenue": 5800, "costs": 400}},
-    "month12": {{"users": 800, "revenue": 23200, "costs": 1200}},
-    "break_even_month": 2,
-    "assumptions": "Key assumptions"
-  }},
-  "mvp_plan": {{
-    "total_hours": 40,
-    "phases": [
-      {{"name": "Phase 1", "hours": 16, "tasks": ["t1", "t2", "t3"]}},
-      {{"name": "Phase 2", "hours": 8, "tasks": ["t1", "t2"]}},
-      {{"name": "Phase 3", "hours": 16, "tasks": ["t1", "t2", "t3"]}}
-    ],
-    "tools_needed": ["tool1", "tool2"]
-  }},
-  "distribution_plan": {{
-    "channels": [{{"name": "Channel", "strategy": "How", "priority": "HIGH"}}],
-    "launch_sequence": ["Step 1", "Step 2", "Step 3"],
-    "content_ideas": ["c1", "c2", "c3"]
-  }}
-}}"""
-    try:
-        r = parse_json_response(await _call_claude(prompt, 3000))
-    except Exception as e:
-        raise HTTPException(503, f"AI temporarily unavailable: {e}")
-    idea.blueprint = r.get("blueprint")
-    idea.revenue_sim = r.get("revenue_sim")
-    idea.mvp_plan = r.get("mvp_plan")
-    idea.distribution_plan = r.get("distribution_plan")
-    db.commit()
-    return {"idea_id": idea_id, "blueprint": idea.blueprint,
-            "revenue_sim": idea.revenue_sim, "mvp_plan": idea.mvp_plan,
-            "distribution_plan": idea.distribution_plan}
-
-
-@app.get("/api/idea/{idea_id}/landing-page")
-async def generate_landing_page(idea_id: str, db: Session = Depends(get_db)):
-    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
-    if not idea:
-        raise HTTPException(404, "Idea not found")
-    if idea.landing_page_html:
-        return HTMLResponse(content=idea.landing_page_html)
-    prompt = f"""Generate a complete landing page HTML for this product. Single file, embedded CSS/JS.
-Dark theme (#080808 bg, #c8ff00 accent). Include: hero, pain points, solution, pricing, FAQ, footer.
-
-PRODUCT: {idea.concept}
-TARGET: {idea.target_user}
-PAIN: {idea.core_pain}
-PRICE: {idea.price}
-CTA: {idea.cta}
-
-Return ONLY HTML. No markdown."""
-    try:
-        html = await _call_claude(prompt, 4000)
-    except Exception as e:
-        raise HTTPException(503, f"AI temporarily unavailable: {e}")
-    if html.startswith("```"):
-        lines = html.split("\n")
-        html = "\n".join(lines[1:-1])
-    idea.landing_page_html = html
-    db.commit()
-    return HTMLResponse(content=html)
-
-
-@app.get("/api/idea/{idea_id}/twitter-thread")
-async def twitter_thread(idea_id: str, db: Session = Depends(get_db)):
-    idea = db.query(IdeaDB).filter(IdeaDB.id == idea_id).first()
-    if not idea:
-        raise HTTPException(404, "Idea not found")
-    if idea.twitter_thread:
-        return {"idea_id": idea_id, "thread": idea.twitter_thread}
-    prompt = f"""Write a viral 5-tweet thread about this startup idea.
-IDEA: {idea.concept} | TARGET: {idea.target_user} | SCORE: {idea.score}/100
-Format: numbered (1/5…). Each max 280 chars. Return ONLY the thread."""
-    try:
-        t = await _call_claude(prompt, 1500)
-    except Exception as e:
-        raise HTTPException(503, f"AI temporarily unavailable: {e}")
-    idea.twitter_thread = t
-    db.commit()
-    return {"idea_id": idea_id, "thread": t}
 
 
 # ═════════════════════════════════════════════════════
@@ -1085,9 +1040,8 @@ async def auto_rank(admin: bool = Depends(check_admin), db: Session = Depends(ge
     ideas = db.query(IdeaDB).filter(IdeaDB.score > 0).all()
     updated = 0
     for i in ideas:
-        bonus = (i.pay or 0) * 10 + (i.rep or 0) * 3 + (i.clk or 0)
-        t = i.score + min(bonus, 30)
-        new = "BUILD" if t >= 80 else "MAYBE" if t >= 50 else "SKIP"
+        # Use deterministic decision engine — no LLM decisions
+        new = compute_final_decision(i.score, None)
         if i.final_decision != new:
             i.final_decision = new
             updated += 1
@@ -1237,7 +1191,6 @@ async def public_idea(share_token: str, db: Session = Depends(get_db)):
 <div class="cd"><div class="meta" style="margin-bottom:10px">3 KEY QUESTIONS</div>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">{gates}</div></div>
 <div class="cd" style="text-align:center"><div class="meta" style="margin-bottom:10px">SHARE</div>
-<a class="btn" href="/api/idea/{idea.id}/pdf" target="_blank" style="margin:4px">Download PDF</a>
 <a class="btn" href="/" style="margin:4px;background:0 0;border:1px solid var(--ac);color:var(--ac)">Validate Your Idea</a></div>
 </div></body></html>""")
 
