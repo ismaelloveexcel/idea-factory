@@ -151,11 +151,46 @@ async def run_all():
                 "mode": "validate",
                 "constraints": {
                     "available_hours": 40,
+                    "channels": ["twitter"],
                     "reachable_people": ["founders"]
                 }
             }),
             headers={"Content-Type": "application/json"})
         t("Analyze empty idea → 400", r.status_code == 400)
+
+        # Empty channels → 400
+        r = await c.post("/api/analyze",
+            content=json.dumps({
+                "idea": "Test idea",
+                "mode": "validate",
+                "constraints": {
+                    "available_hours": 40,
+                    "skills": ["python"],
+                    "audience_size": 100,
+                    "channels": [],
+                    "cash_available": 500,
+                    "reachable_people": ["founders"]
+                }
+            }),
+            headers={"Content-Type": "application/json"})
+        t("Analyze empty channels → 400", r.status_code == 400)
+
+        # available_hours < 1 → 400
+        r = await c.post("/api/analyze",
+            content=json.dumps({
+                "idea": "Test idea",
+                "mode": "validate",
+                "constraints": {
+                    "available_hours": 0,
+                    "skills": ["python"],
+                    "audience_size": 100,
+                    "channels": ["twitter"],
+                    "cash_available": 500,
+                    "reachable_people": ["founders"]
+                }
+            }),
+            headers={"Content-Type": "application/json"})
+        t("Analyze available_hours < 1 → 400", r.status_code == 400)
 
         # ══════════════════════════════════════════
         section("8. REMOVED ENDPOINTS (Phase 6)")

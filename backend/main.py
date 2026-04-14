@@ -40,7 +40,9 @@ load_dotenv()
 
 
 # ─── CONFIG ───────────────────────────────────────────
-_DEFAULT_DB_DIR = "/app/data" if os.path.isdir("/app") else "."
+_DEFAULT_DB_DIR = "/app/data" if os.path.isdir("/app/data") else "."
+if _DEFAULT_DB_DIR == "/app/data":
+    os.makedirs(_DEFAULT_DB_DIR, exist_ok=True)
 _DB_PATH = os.path.join(_DEFAULT_DB_DIR, "idea_factory.db")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DB_PATH}")
 if DATABASE_URL.startswith("postgres://"):
@@ -181,6 +183,20 @@ class OperatorConstraints(BaseModel):
     def reachable_people_not_empty(cls, v):
         if not v:
             raise ValueError("reachable_people must not be empty")
+        return v
+
+    @field_validator("channels")
+    @classmethod
+    def channels_not_empty(cls, v):
+        if not v:
+            raise ValueError("channels must not be empty")
+        return v
+
+    @field_validator("available_hours")
+    @classmethod
+    def available_hours_positive(cls, v):
+        if v < 1:
+            raise ValueError("available_hours must be at least 1")
         return v
 
 
@@ -609,7 +625,7 @@ def enforce_evidence(analysis: dict) -> dict:
         evidence = (gate.get("evidence") or "").strip()
         if not evidence:
             gate["answer"] = "NO"
-            gate["reasoning"] = (gate.get("reasoning", "") + " [Downgraded: no evidence provided]").strip()
+            gate["reasoning"] = ((gate.get("reasoning") or "") + " [Downgraded: no evidence provided]").strip()
             gate["evidence"] = ""
             analysis[gate_key] = gate
     return analysis
@@ -767,11 +783,12 @@ async def analyze_idea(request: Request):
     async def stream():
         original_idea = idea_text
         heartbeat_interval = SSE_HEARTBEAT_INTERVAL
-        last_heartbeat = asyncio.get_event_loop().time()
+        loop = asyncio.get_running_loop()
+        last_heartbeat = loop.time()
 
         async def maybe_heartbeat():
             nonlocal last_heartbeat
-            now = asyncio.get_event_loop().time()
+            now = loop.time()
             if now - last_heartbeat >= heartbeat_interval:
                 last_heartbeat = now
                 return sse("heartbeat", {})

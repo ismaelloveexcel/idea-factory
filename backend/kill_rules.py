@@ -12,7 +12,7 @@ def apply_kill_rules(analysis: dict, constraints: dict, research: dict | None) -
     # Rule 1: Any gate answer == "NO"
     for gate_key in ("gate1", "gate2", "gate3"):
         gate = analysis.get(gate_key, {})
-        answer = gate.get("answer", "").upper().strip()
+        answer = (gate.get("answer") or "").upper().strip()
         if answer == "NO":
             question = gate.get("question", gate_key)
             return {
@@ -29,8 +29,14 @@ def apply_kill_rules(analysis: dict, constraints: dict, research: dict | None) -
         }
 
     # Rule 3: estimated build time > available_hours
-    build_time = analysis.get("build_time_hours", 0)
-    available = constraints.get("available_hours", 0)
+    try:
+        build_time = float(analysis.get("build_time_hours", 0) or 0)
+    except (TypeError, ValueError):
+        build_time = 0
+    try:
+        available = float(constraints.get("available_hours", 0) or 0)
+    except (TypeError, ValueError):
+        available = 0
     if build_time > 0 and available > 0 and build_time > available:
         return {
             "decision": "KILL",
